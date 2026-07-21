@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}用户管理 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="panel-kicker">User Admin</p>
+      <h2>用户管理</h2>
+    </div>
+  </div>
+
+  <form method="post" action="/users/create" class="project-form-grid">
+    <label>
+      <span>用户名</span>
+      <input type="text" name="username" required>
+    </label>
+    <label>
+      <span>显示名称</span>
+      <input type="text" name="display_name" required>
+    </label>
+    <label>
+      <span>初始密码</span>
+      <input type="password" name="password" required>
+    </label>
+    <label>
+      <span>角色</span>
+      <select name="role">
+        {% for value, label in role_labels.items() %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="full-span form-actions">
+      <button class="primary-btn" type="submit">新增用户</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="panel-kicker">Team</p>
+      <h3>现有成员</h3>
+    </div>
+  </div>
+  <div class="user-grid">
+    {% for user in users %}
+      <form method="post" action="/users/{{ user.id }}/edit" class="quote-card stack-form">
+        <div class="inline-meta">
+          <strong>{{ user.username }}</strong>
+          <span>{{ role_labels.get(user.role, user.role) }}</span>
+        </div>
+        <label>
+          <span>显示名称</span>
+          <input type="text" name="display_name" value="{{ user.display_name }}" required>
+        </label>
+        <label>
+          <span>角色</span>
+          <select name="role">
+            {% for value, label in role_labels.items() %}
+              <option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>重置密码</span>
+          <input type="password" name="password" placeholder="不修改可留空">
+        </label>
+        <button class="ghost-btn" type="submit">保存用户</button>
+      </form>
+    {% else %}
+      <div class="empty-card">当前还没有用户。</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

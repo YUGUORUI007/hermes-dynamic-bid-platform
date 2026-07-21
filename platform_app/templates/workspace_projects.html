@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+{% block title %}在投项目管理 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+<section class="workspace-shell">
+  <section class="workspace-stage">
+    <div class="workspace-copy">
+      <p class="panel-kicker">Project Operations</p>
+      <h2>在投项目管理</h2>
+      <div class="portal-chip-row">
+        <span class="portal-chip">在投 {{ dashboard.active_projects|length }}</span>
+        <span class="portal-chip soft">今日到期 {{ dashboard.due_today_count }}</span>
+        <span class="portal-chip soft">待确认 {{ dashboard.pending_reviews|length }}</span>
+      </div>
+    </div>
+    <div class="workspace-stage-side">
+      {% if can_edit_projects(current_user) %}
+        <form class="upload-inline workspace-upload-form" action="/upload" method="post" enctype="multipart/form-data" data-parse-upload-form data-parse-label="AI 正在解析招标文件">
+          <label class="file-input">
+            <span>上传招标文件</span>
+            <input type="file" name="source_file" accept=".pdf,.docx,.doc,.txt,.md,.csv" required>
+          </label>
+          <button class="primary-btn" type="submit">进入 AI 解析</button>
+        </form>
+      {% endif %}
+      <div class="workspace-inline-actions">
+        <a class="ghost-btn" href="{{ public_home_path }}">查看公开看板</a>
+        <a class="ghost-btn" href="{{ workspace_reviews_path }}">打开待确认队列</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <p class="stat-label">在投项目</p>
+      <p class="stat-value">{{ dashboard.active_projects|length }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">今日到期</p>
+      <p class="stat-value">{{ dashboard.due_today_count }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">本周开标</p>
+      <p class="stat-value">{{ dashboard.week_bid_open_count }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">待汇保证金</p>
+      <p class="stat-value">{{ dashboard.pending_deposit_count }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">待补结果</p>
+      <p class="stat-value">{{ dashboard.pending_result_count }}</p>
+    </article>
+  </section>
+
+  <section class="dashboard-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">Filters</p>
+          <h3>项目筛选</h3>
+        </div>
+      </div>
+      <form method="get" action="{{ workspace_projects_path }}" class="project-form-grid">
+        <label>
+          <span>关键词</span>
+          <input type="text" name="keyword" value="{{ dashboard.filters.keyword }}" placeholder="项目名称 / 编号 / 负责人 / 招标人">
+        </label>
+        <label>
+          <span>项目状态</span>
+          <select name="status">
+            <option value="">全部状态</option>
+            {% for value, label in status_labels.items() %}
+              {% if value in active_project_statuses %}
+                <option value="{{ value }}" {% if dashboard.filters.status == value %}selected{% endif %}>{{ label }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>看板阶段</span>
+          <select name="stage">
+            <option value="">全部阶段</option>
+            {% for value, label in {"pending_intake":"待识别","pending_signup":"待报名","preparing_bid":"标书制作中","pending_deposit":"待缴保证金","pending_submission":"待递交","submitted":"已递交","pending_result":"待结果"}.items() %}
+              <option value="{{ value }}" {% if dashboard.filters.stage == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>风险等级</span>
+          <select name="risk">
+            <option value="">全部风险</option>
+            <option value="critical" {% if dashboard.filters.risk == "critical" %}selected{% endif %}>高风险</option>
+            <option value="warning" {% if dashboard.filters.risk == "warning" %}selected{% endif %}>中风险</option>
+            <option value="watch" {% if dashboard.filters.risk == "watch" %}selected{% endif %}>待补信息</option>
+            <option value="normal" {% if dashboard.filters.risk == "normal" %}selected{% endif %}>正常</option>
+          </select>
+        </label>
+        <div class="full-span form-actions">
+          <button class="primary-btn" type="submit">应用筛选</button>
+          <a class="ghost-btn" href="{{ workspace_projects_path }}">重置</a>
+        </div>
+      </form>
+      {% if dashboard.filters.keyword or dashboard.filters.status or dashboard.filters.stage or dashboard.filters.risk %}
+        <div class="filter-chip-row">
+          {% if dashboard.filters.keyword %}<span class="filter-chip">关键词：{{ dashboard.filters.keyword }}</span>{% endif %}
+          {% if dashboard.filters.status %}<span class="filter-chip">状态：{{ status_labels.get(dashboard.filters.status, dashboard.filters.status) }}</span>{% endif %}
+          {% if dashboard.filters.stage %}<span class="filter-chip">阶段：{{ {"pending_intake":"待识别","pending_signup":"待报名","preparing_bid":"标书制作中","pending_deposit":"待缴保证金","pending_submission":"待递交","submitted":"已递交","pending_result":"待结果"}.get(dashboard.filters.stage, dashboard.filters.stage) }}</span>{% endif %}
+          {% if dashboard.filters.risk %}<span class="filter-chip">风险：{{ {"critical":"高风险","warning":"中风险","watch":"待补信息","normal":"正常"}.get(dashboard.filters.risk, dashboard.filters.risk) }}</span>{% endif %}
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">Coordination</p>
+          <h3>近期提醒</h3>
+        </div>
+        {% if dashboard.pending_reviews %}
+          <a class="text-link" href="{{ workspace_reviews_path }}">待确认解析 {{ dashboard.pending_reviews|length }} 个</a>
+        {% endif %}
+      </div>
+      <div class="quote-list">
+        {% for item in dashboard.reminders %}
+          <div class="list-item">
+            <a href="/projects/{{ item.project.id }}">
+              <strong>{{ item.project.name }}</strong>
+              <span>{{ item.label }} · {{ format_datetime(item.due_at) }}</span>
+              <em>
+                {% if item.done %}
+                  已完成{% if item.done_by %} · {{ item.done_by }}{% endif %}
+                {% elif item.delta_days < 0 %}
+                  已超期 {{ item.delta_days|abs }} 天
+                {% elif item.delta_days == 0 %}
+                  今天
+                {% else %}
+                  {{ item.delta_days }} 天内
+                {% endif %}
+              </em>
+            </a>
+          </div>
+        {% else %}
+          <div class="empty-card">当前没有 7 天内的关键提醒。</div>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+
+  <section class="dashboard-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">Risk Radar</p>
+          <h3>优先处理项目</h3>
+        </div>
+      </div>
+      <div class="list-grid">
+        {% for item in dashboard.risk_projects %}
+          <a class="list-item risk-card risk-{{ item.stage.risk_level }}" href="/projects/{{ item.project.id }}">
+            <strong>{{ item.project.name }}</strong>
+            <span>{{ item.stage.stage_label }} · {{ item.stage.next_label }}</span>
+            <em>
+              {% if item.stage.next_due_text %}
+                {{ item.stage.next_due_text }}
+              {% else %}
+                待补充关键节点
+              {% endif %}
+              · {{ item.stage.risk_reason }}
+            </em>
+          </a>
+        {% else %}
+          <div class="empty-card">当前没有高优先级风险项目。</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">Result Follow-up</p>
+          <h3>待补结果</h3>
+        </div>
+      </div>
+      <div class="quote-list">
+        {% for item in dashboard.workboard_projects if item.project.status == "result_pending" %}
+          <a class="list-item" href="/projects/{{ item.project.id }}">
+            <strong>{{ item.project.name }}</strong>
+            <span>{{ item.stage.stage_label }}</span>
+            <em>{{ item.stage.risk_reason }}</em>
+          </a>
+        {% else %}
+          <div class="empty-card">当前没有待补结果项目。</div>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Workboard</p>
+        <h3>在投项目总览</h3>
+        <p class="muted">当前筛选结果：{{ dashboard.workboard_projects|length }} 个项目</p>
+      </div>
+    </div>
+    <div class="workspace-stage-summary">
+      {% for group in dashboard.stage_groups %}
+        <div class="workspace-stage-pill">
+          <strong>{{ group.entries|length }}</strong>
+          <span>{{ group.stage_label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="workspace-project-grid">
+      {% for item in dashboard.workboard_projects %}
+        <a class="portal-project-card workspace-project-card risk-{{ item.stage.risk_level }}" href="/projects/{{ item.project.id }}">
+          <div class="portal-project-top">
+            <div class="portal-project-heading">
+              <strong>{{ item.project.name }}</strong>
+              <span>{{ item.project.tender_code or "未填写招标编号" }}</span>
+            </div>
+            <em>{{ item.stage.stage_label }}</em>
+          </div>
+          <div class="chip-row">
+            <span class="status-pill ready">{{ status_labels.get(item.project.status, item.project.status) }}</span>
+            <span class="status-pill">{{ bid_document_status_labels.get(item.project.bid_document_status or "not_started", item.project.bid_document_status or "not_started") }}</span>
+            <span class="status-pill pending">{{ defense_option_labels.get(item.project.has_defense or "unknown", item.project.has_defense or "unknown") }}</span>
+          </div>
+          <div class="workspace-snapshot-grid">
+            <article class="detail-card">
+              <span>下一步</span>
+              <strong>{{ item.stage.next_label }}</strong>
+            </article>
+            <article class="detail-card">
+              <span>时间</span>
+              <strong>{{ item.stage.next_due_text or "待补充" }}</strong>
+            </article>
+            <article class="detail-card">
+              <span>项目地点</span>
+              <strong>{{ item.project.location or "-" }}</strong>
+            </article>
+            <article class="detail-card">
+              <span>开标/递交地点</span>
+              <strong>{{ item.project.bid_location or "-" }}</strong>
+            </article>
+          </div>
+          <p class="portal-project-summary">{{ item.stage.risk_reason }}</p>
+          {% if item.next_actions %}
+            <div class="portal-mini-list">
+              {% for action in item.next_actions[:3] %}
+                <div class="portal-mini-item">
+                  <span>{{ action.label }}</span>
+                  <em>{% if action.due_at %}{{ action.due_at }}{% else %}待补充{% endif %}</em>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </a>
+      {% else %}
+        <div class="empty-card">当前没有符合筛选条件的在投项目。</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if can_edit_projects(current_user) %}
+    <section class="workspace-action-grid">
+      <details class="panel workspace-disclosure">
+        <summary>
+          <div>
+            <strong>导入历史台账</strong>
+            <span>Excel / CSV</span>
+          </div>
+        </summary>
+        <div class="workspace-disclosure-body">
+          <form class="upload-inline" action="/imports/ledger" method="post" enctype="multipart/form-data">
+            <label class="file-input">
+              <span>上传 Excel / CSV 台账</span>
+              <input type="file" name="ledger_file" accept=".xlsx,.csv" required>
+            </label>
+            <button class="primary-btn" type="submit">开始导入</button>
+          </form>
+        </div>
+      </details>
+
+      <details class="panel workspace-disclosure">
+        <summary>
+          <div>
+            <strong>手动创建项目</strong>
+            <span>录入项目字段</span>
+          </div>
+        </summary>
+        <div class="workspace-disclosure-body">
+          <form method="post" action="/projects/create" class="project-form-grid">
+            <label>
+              <span>项目名称</span>
+              <input type="text" name="name" required>
+            </label>
+            <label>
+              <span>项目简称</span>
+              <input type="text" name="short_name">
+            </label>
+            <label>
+              <span>招标编号</span>
+              <input type="text" name="tender_code">
+            </label>
+            <label>
+              <span>招标人 / 采购人</span>
+              <input type="text" name="buyer">
+            </label>
+            <label>
+              <span>项目类型</span>
+              <input type="text" name="project_type" placeholder="例如 物业服务">
+            </label>
+            <label>
+              <span>投标性质</span>
+              <select name="bid_mode">
+                {% for value, label in bid_mode_labels.items() %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>项目状态</span>
+              <select name="status">
+                {% for value, label in status_labels.items() %}
+                  <option value="{{ value }}" {% if value == "tracking" %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>负责人</span>
+              <input type="text" name="owner_name">
+            </label>
+            <label>
+              <span>代理机构</span>
+              <input type="text" name="agency">
+            </label>
+            <label>
+              <span>联系人</span>
+              <input type="text" name="contact_name">
+            </label>
+            <label>
+              <span>联系电话</span>
+              <input type="text" name="contact_phone">
+            </label>
+            <label>
+              <span>保证金金额</span>
+              <input type="text" name="deposit_amount" placeholder="例如 10">
+            </label>
+            <label>
+              <span>报名截止</span>
+              <input type="text" name="signup_deadline" placeholder="YYYY-MM-DD HH:MM">
+            </label>
+            <label>
+              <span>保证金截止</span>
+              <input type="text" name="deposit_deadline" placeholder="YYYY-MM-DD HH:MM">
+            </label>
+            <label>
+              <span>递交时间</span>
+              <input type="text" name="submission_datetime" placeholder="YYYY-MM-DD HH:MM">
+            </label>
+            <label>
+              <span>开标时间</span>
+              <input type="text" name="bid_datetime" placeholder="YYYY-MM-DD HH:MM">
+            </label>
+            <label class="full-span">
+              <span>项目地点</span>
+              <input type="text" name="location">
+            </label>
+            <label class="full-span">
+              <span>开标 / 递交地点</span>
+              <input type="text" name="bid_location">
+            </label>
+            <label>
+              <span>标书编制状态</span>
+              <select name="bid_document_status">
+                {% for value, label in {"not_started":"未编制","drafting":"编制中","reviewing":"审核中","ready":"已编制"}.items() %}
+                  <option value="{{ value }}" {% if value == "not_started" %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>是否答辩</span>
+              <select name="has_defense">
+                {% for value, label in {"unknown":"待确认","yes":"需要答辩","no":"无需答辩"}.items() %}
+                  <option value="{{ value }}" {% if value == "unknown" %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>答辩人选</span>
+              <input type="text" name="defense_presenter">
+            </label>
+            <label class="full-span">
+              <span>备注</span>
+              <textarea name="notes" rows="3"></textarea>
+            </label>
+            <div class="full-span form-actions">
+              <button class="primary-btn" type="submit">创建项目</button>
+            </div>
+          </form>
+        </div>
+      </details>
+    </section>
+  {% endif %}
+</section>
+{% endblock %}

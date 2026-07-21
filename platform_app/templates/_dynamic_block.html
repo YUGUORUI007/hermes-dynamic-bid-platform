@@ -1,0 +1,22 @@
+{% set kind = block.type %}
+{% if kind == 'field' %}
+  <article class="dynamic-field width-{{ block.width or 'full' }}"><span>{{ block.label }}</span><strong>{% if block.semantic == 'url' and block.value %}<a href="{{ block.value }}" rel="noopener noreferrer">{{ block.value }}</a>{% else %}{{ block.value if block.value is not none else '-' }}{% endif %}</strong></article>
+{% elif kind == 'status' %}
+  <article class="dynamic-field width-{{ block.width or 'full' }}"><span>{{ block.label }}</span><strong><em class="status {{ block.tone }}">{{ block.value }}</em></strong></article>
+{% elif kind == 'text' %}
+  <article class="text-block width-{{ block.width or 'full' }}">{% if block.title %}<h3>{{ block.title }}</h3>{% endif %}<p>{{ block.content }}</p></article>
+{% elif kind == 'list' %}
+  <article class="list-block width-{{ block.width or 'full' }}">{% if block.title %}<h3>{{ block.title }}</h3>{% endif %}{% if block.ordered %}<ol>{% for item in block['items'] %}<li>{{ item }}</li>{% endfor %}</ol>{% else %}<ul>{% for item in block['items'] %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}</article>
+{% elif kind == 'callout' %}
+  <article class="callout {{ block.tone }} width-{{ block.width or 'full' }}"><i data-lucide="{% if block.tone == 'danger' %}octagon-alert{% elif block.tone == 'warning' %}triangle-alert{% else %}info{% endif %}"></i><div>{% if block.title %}<strong>{{ block.title }}</strong>{% endif %}<p>{{ block.content }}</p></div></article>
+{% elif kind == 'table' %}
+  <article class="table-scroll width-{{ block.width or 'full' }}">{% if block.title %}<h3>{{ block.title }}</h3>{% endif %}<table class="data-table"><thead><tr>{% for column in block.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.rows %}<tr>{% for cell in row %}<td>{{ cell if cell is not none else '-' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></article>
+{% elif kind == 'timeline' %}
+  <article class="width-{{ block.width or 'full' }}">{% if block.title %}<h3>{{ block.title }}</h3>{% endif %}<ol class="timeline">{% for item in block['items'] %}<li><time>{{ item.at or '-' }}</time><i class="timeline-dot {{ item.tone }}"></i><span><strong>{{ item.label }}</strong>{% if item.description %}<small>{{ item.description }}</small>{% endif %}</span>{% if item.status %}<em class="status {{ item.tone }}">{{ item.status }}</em>{% endif %}</li>{% endfor %}</ol></article>
+{% elif kind == 'checklist' %}
+  <article class="width-{{ block.width or 'full' }}">{% if block.title %}<h3>{{ block.title }}</h3>{% endif %}<ul class="checklist">{% for item in block['items'] %}<li><i class="checkmark {% if item.done %}done{% endif %}">{% if item.done %}<span>✓</span>{% endif %}</i><span>{{ item.label }}{% if item.note %}<small>{{ item.note }}</small>{% endif %}</span></li>{% endfor %}</ul></article>
+{% elif kind == 'files' %}
+  <article class="file-list width-{{ block.width or 'full' }}">{% if block.title %}<h3>{{ block.title }}</h3>{% endif %}{% for item in block['items'] %}<a href="{{ item.url }}"><i data-lucide="paperclip"></i>{{ item.name }}</a>{% endfor %}</article>
+{% elif kind == 'divider' %}<hr class="dynamic-divider">
+{% endif %}
+

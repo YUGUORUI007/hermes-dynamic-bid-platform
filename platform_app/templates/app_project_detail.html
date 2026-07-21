@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ dynamic_project.title }} - 合家投标{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ workspace_projects_path }}"><i data-lucide="arrow-left"></i>返回全部项目</a>
+<section class="project-hero">
+  <div class="project-hero-top"><span class="project-avatar">{{ dynamic_project.owner[:1] }}</span><div class="project-heading"><h1>{{ dynamic_project.title }}</h1><p><em class="status {{ dynamic_project.status_tone }}">{{ dynamic_project.status_label }}</em><span>{{ dynamic_project.code }}</span><span>负责人：{{ dynamic_project.owner }}</span><span>版本 {{ dynamic_project.version }}</span></p></div><div class="project-actions"><button class="icon-btn" type="button" data-print-project aria-label="打印项目" title="打印项目"><i data-lucide="printer"></i></button>{% if can_edit_projects(current_user) %}<a class="secondary-btn" href="/projects/{{ dynamic_project.id }}/dynamic-editor"><i data-lucide="pencil"></i>编辑</a>{% endif %}</div></div>
+  <p class="project-summary">{{ dynamic_project.summary }}</p>
+  <nav class="detail-tabs" aria-label="项目内容标签">
+    {% for section in dynamic_project.content.sections %}<button type="button" class="{% if loop.first %}active{% endif %}" data-tab="section-{{ loop.index0 }}"><i data-lucide="{{ section.icon or 'file-text' }}"></i>{{ section.title }}<small>{{ section.blocks|length }}</small></button>{% endfor %}
+  </nav>
+</section>
+<section class="detail-stage">
+  {% for section in dynamic_project.content.sections %}
+  <div class="tab-pane {% if loop.first %}active{% endif %}" id="section-{{ loop.index0 }}">
+    <header class="pane-title"><div><h2>{{ section.title }}</h2>{% if section.description %}<p>{{ section.description }}</p>{% endif %}</div>{% if section.priority != 'normal' %}<em class="priority {{ section.priority }}">{% if section.priority == 'urgent' %}紧急{% else %}重要{% endif %}</em>{% endif %}</header>
+    {% if section.blocks %}<div class="dynamic-grid">{% for block in section.blocks %}{% include "_dynamic_block.html" %}{% endfor %}</div>{% else %}<div class="empty-state"><i data-lucide="file-plus-2"></i><strong>此标签暂无内容</strong><span>可由 Hermes 或动态编辑器补充。</span></div>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

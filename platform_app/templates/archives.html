@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}已投项目 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+<section class="archive-shell">
+  <section class="portal-stage page-stage archive-stage">
+    <div class="portal-copy">
+      <p class="panel-kicker">Archive Library</p>
+      <h2>已投项目</h2>
+      <div class="portal-chip-row">
+        <span class="portal-chip">记录 {{ archived_projects|length }}</span>
+      </div>
+    </div>
+    <div class="archive-stage-side">
+      <form method="get" action="/archives" class="stack-form archive-filter-form">
+        <label>
+          <span>项目关键词</span>
+          <input type="text" name="keyword" value="{{ keyword or '' }}" placeholder="输入项目名称关键词">
+        </label>
+        <div class="form-actions">
+          <button class="primary-btn" type="submit">筛选</button>
+          <a class="ghost-btn" href="/archives">重置</a>
+        </div>
+      </form>
+      <div class="workspace-inline-actions">
+        <a class="ghost-btn" href="{{ public_home_path }}">查看公开看板</a>
+        {% if current_user %}
+          <a class="ghost-btn" href="{{ workspace_projects_path }}">返回在投项目管理</a>
+        {% else %}
+          <a class="ghost-btn" href="/login">登录工作台</a>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel scroll-target" id="archive-list">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Archive Result</p>
+        <h3>查询结果</h3>
+      </div>
+    </div>
+    {% if keyword or selected_status %}
+      <div class="filter-chip-row">
+        {% if keyword %}<span class="filter-chip">关键词：{{ keyword }}</span>{% endif %}
+        {% if selected_status %}<span class="filter-chip">状态：{{ status_labels.get(selected_status, selected_status) }}</span>{% endif %}
+      </div>
+    {% endif %}
+    <div class="archive-list">
+      {% for item in archived_projects %}
+        <article class="archive-record">
+          <div class="archive-record-main">
+            <div class="archive-record-heading">
+              <strong>{{ item.display_name }}</strong>
+              <span>投标时间</span>
+            </div>
+          </div>
+          <div class="archive-record-meta">
+            <strong>{{ format_datetime(item.bid_at) or "未记录投标时间" }}</strong>
+          </div>
+        </article>
+      {% else %}
+        <div class="empty-card">当前还没有已投项目记录。</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

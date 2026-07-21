@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}项目公开详情 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+{% set ns = namespace(deposit_status="未汇出", submission_status="未递交", bid_open_status="待开标") %}
+{% for item in execution_status_items %}
+  {% if item.milestone_type == "deposit" %}
+    {% set ns.deposit_status = item.status_label %}
+  {% elif item.milestone_type == "submission" %}
+    {% set ns.submission_status = item.status_label %}
+  {% elif item.milestone_type == "bid_open" %}
+    {% set ns.bid_open_status = item.status_label %}
+  {% endif %}
+{% endfor %}
+<section class="public-detail-shell">
+  <section class="public-detail-hero">
+    <div class="public-hero-copy">
+      <p class="panel-kicker">Public Project Sheet</p>
+      <h2>{{ public_brief.project_name }}</h2>
+      <p class="public-detail-meta">{{ project.tender_code or "未填写招标编号" }} · {{ status_labels.get(project.status, project.status) }}</p>
+      <div class="portal-chip-row">
+        <span class="portal-chip">{{ public_brief.bid_document_status_label }}</span>
+        <span class="portal-chip soft">{{ public_brief.has_defense_label }}</span>
+        {% if public_brief.project_type %}
+          <span class="portal-chip soft">{{ public_brief.project_type }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="public-hero-actions">
+      <a class="ghost-btn" href="{{ public_home_path }}">返回公开看板</a>
+    </div>
+  </section>
+
+  <nav class="page-anchor-nav" aria-label="项目公开详情分区导航">
+    <a href="#public-overview">关键信息</a>
+    <a href="#public-status">关键节点</a>
+    <a href="#public-timeline">执行节点</a>
+    <a href="#public-delivery">递交封标</a>
+    <a href="#public-risk">废标风险</a>
+    <a href="#public-focus">评分答辩</a>
+  </nav>
+
+  <section class="public-detail-grid">
+    <section class="portal-panel scroll-target" id="public-overview">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Overview</p>
+          <h3>项目关键信息</h3>
+        </div>
+      </div>
+      <div class="detail-grid public-metric-grid">
+        <article class="detail-card">
+          <span>项目名称</span>
+          <strong>{{ public_brief.project_name }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>项目地址</span>
+          <strong>{{ public_brief.address or "-" }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>开标地点</span>
+          <strong>{{ public_brief.bid_location or "-" }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>保证金金额</span>
+          <strong>{% if project.deposit_amount is not none %}{{ project.deposit_amount }} 万{% else %}-{% endif %}</strong>
+        </article>
+        <article class="detail-card">
+          <span>报名截止</span>
+          <strong>{{ format_datetime(project.signup_deadline) or "-" }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>保证金截止</span>
+          <strong>{{ format_datetime(project.deposit_deadline) or "-" }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>递交时间</span>
+          <strong>{{ format_datetime(project.submission_datetime) or "-" }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>开标时间</span>
+          <strong>{{ format_datetime(project.bid_datetime) or "-" }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>是否答辩</span>
+          <strong>{{ public_brief.has_defense_label }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>答辩人选</span>
+          <strong>{{ public_brief.defense_presenter or "-" }}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="portal-panel scroll-target" id="public-status">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Status Board</p>
+          <h3>关键节点状态</h3>
+        </div>
+      </div>
+      <div class="public-status-grid">
+        <article class="public-status-card">
+          <span>招标文件已编制</span>
+          <strong>{{ public_brief.bid_document_status_label }}</strong>
+        </article>
+        <article class="public-status-card">
+          <span>保证金已汇出</span>
+          <strong>{{ ns.deposit_status }}</strong>
+        </article>
+        <article class="public-status-card">
+          <span>投标文件已递交</span>
+          <strong>{{ ns.submission_status }}</strong>
+        </article>
+        <article class="public-status-card">
+          <span>开标节点</span>
+          <strong>{{ ns.bid_open_status }}</strong>
+        </article>
+      </div>
+    </section>
+  </section>
+
+  <section class="public-detail-grid">
+    <section class="portal-panel scroll-target" id="public-timeline">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Timeline</p>
+          <h3>执行节点</h3>
+        </div>
+      </div>
+      <div class="public-timeline">
+        {% for item in execution_status_items %}
+          <article class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.status_label }}</span>
+              <p>{% if item.due_at %}{{ format_datetime(item.due_at) }}{% else %}时间待补充{% endif %}</p>
+            </div>
+          </article>
+        {% else %}
+          <div class="empty-card">当前还没有可展示的执行节点。</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="portal-panel scroll-target" id="public-delivery">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Delivery Guide</p>
+          <h3>递交与封标注意事项</h3>
+        </div>
+      </div>
+      <div class="quote-list">
+        <article class="quote-card">
+          <strong>递交注意事项</strong>
+          <p>{{ public_brief.submission_notes or "当前尚未整理递交注意事项。" }}</p>
+        </article>
+        <article class="quote-card">
+          <strong>封标注意事项</strong>
+          <p>{{ public_brief.seal_notes or "当前尚未整理封标注意事项。" }}</p>
+        </article>
+        {% for item in public_brief.response_items %}
+          <article class="quote-card">
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.content }}</p>
+            <span>{% if item.source_location %}{{ item.source_location }}{% else %}来源位置待补充{% endif %}</span>
+          </article>
+        {% endfor %}
+        {% for item in public_brief.document_items %}
+          <article class="quote-card">
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.content }}</p>
+            <span>{% if item.source_location %}{{ item.source_location }}{% else %}来源位置待补充{% endif %}</span>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+
+  <section class="public-detail-grid">
+    <section class="portal-panel scroll-target" id="public-risk">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Risk Reminder</p>
+          <h3>废标项与风险提醒</h3>
+        </div>
+      </div>
+      <div class="quote-list">
+        <article class="quote-card">
+          <strong>人工整理废标项</strong>
+          <p>{{ public_brief.invalidation_risks or "当前尚未整理废标项摘要。" }}</p>
+        </article>
+        {% for item in public_brief.risk_items %}
+          <article class="quote-card">
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.content }}</p>
+            <span>{% if item.source_location %}{{ item.source_location }}{% else %}来源位置待补充{% endif %}</span>
+          </article>
+        {% else %}
+          <div class="empty-card">当前没有结构化废标风险要点。</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="portal-panel scroll-target" id="public-focus">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Focus Items</p>
+          <h3>评分与答辩关注点</h3>
+        </div>
+      </div>
+      <div class="quote-list">
+        {% for item in public_brief.scoring_items %}
+          <article class="quote-card">
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.content }}</p>
+            <span>{% if item.source_location %}{{ item.source_location }}{% else %}来源位置待补充{% endif %}</span>
+          </article>
+        {% else %}
+          <div class="empty-card">当前没有可公开展示的评分要点。</div>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+</section>
+{% endblock %}

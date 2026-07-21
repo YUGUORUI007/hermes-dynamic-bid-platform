@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}全部项目 - 合家投标{% endblock %}
+{% block content %}
+<header class="page-title"><div><span class="eyebrow">项目中心</span><h1>全部项目</h1><p>动态字段摘要由 Hermes 按每个项目的实际内容指定。</p></div>{% if can_edit_projects(current_user) %}<button class="primary-btn" type="button" data-dialog-open="manual-create"><i data-lucide="plus"></i>新建项目</button>{% endif %}</header>
+<form class="toolbar" method="get" action="{{ workspace_projects_path }}">
+  <label class="wide-search"><i data-lucide="search"></i><input name="keyword" value="{{ workspace.filters.keyword }}" placeholder="搜索项目、编号或动态内容"></label>
+  <select name="status"><option value="">全部状态</option>{% for value,label in workspace.status_labels.items() %}{% if value in active_project_statuses %}<option value="{{ value }}" {% if workspace.filters.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select>
+  <select name="owner"><option value="">全部负责人</option>{% for owner in workspace.owners %}<option value="{{ owner }}" {% if workspace.filters.owner == owner %}selected{% endif %}>{{ owner }}</option>{% endfor %}</select>
+  <button class="secondary-btn" type="submit"><i data-lucide="sliders-horizontal"></i>筛选</button>
+</form>
+<section class="project-surface"><div class="project-table-head"><span>项目</span><span>状态</span><span>负责人</span><span class="desktop-column">下一节点</span><span class="desktop-column">最近更新</span><span></span></div>{% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}</section>
+
+{% if can_edit_projects(current_user) %}
+<dialog class="app-dialog" id="manual-create">
+  <form method="post" action="/projects/create" class="dialog-card">
+    <header><div><span class="eyebrow">人工录入</span><h2>新建基础项目</h2></div><button class="icon-btn" type="button" data-dialog-close aria-label="关闭"><i data-lucide="x"></i></button></header>
+    <p class="form-note">这里只建立最小项目外壳。业务标签与字段可随后由 Hermes 同步或在动态编辑器维护。</p>
+    <div class="form-grid">
+      <label><span>项目名称</span><input name="name" required></label>
+      <label><span>招标编号</span><input name="tender_code"></label>
+      <label><span>负责人</span><input name="owner_name"></label>
+      <label><span>项目状态</span><select name="status"><option value="tracking">进行中</option><option value="submitted">已递交</option><option value="result_pending">待结果</option></select></label>
+      <input type="hidden" name="short_name"><input type="hidden" name="buyer"><input type="hidden" name="project_type"><input type="hidden" name="bid_mode" value="self"><input type="hidden" name="notes">
+    </div>
+    <footer><button class="secondary-btn" type="button" data-dialog-close>取消</button><button class="primary-btn" type="submit">创建项目</button></footer>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
+

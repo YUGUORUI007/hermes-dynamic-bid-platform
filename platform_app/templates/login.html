@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}登录 - 合家投标{% endblock %}
+{% block main_class %}login-page{% endblock %}
+{% block content %}
+<section class="login-shell-v2">
+  <div class="login-context"><span class="brand-mark"><i data-lucide="building-2"></i></span><h1>合家投标</h1><p>统一管理在投项目、关键节点和 Hermes 同步内容。</p><small>内部业务系统 · 所有访问与修改均被记录</small></div>
+  <form method="post" action="/login" class="login-card-v2">
+    <span class="eyebrow">PROJECT DESK</span><h2>登录工作区</h2><p>使用公司账号进入投标项目管理平台。</p>
+    <label><span>账号</span><input type="text" name="username" autocomplete="username" required autofocus></label>
+    <label><span>密码</span><input type="password" name="password" autocomplete="current-password" required></label>
+    <button class="primary-btn" type="submit">登录</button>
+  </form>
+</section>
+{% endblock %}

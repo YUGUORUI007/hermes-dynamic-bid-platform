@@ -1,0 +1,38 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / browser test output
+node_modules/
+playwright-report/
+test-results/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data and generated artifacts
+instance/
+storage/
+tmp/
+data/
+*.sqlite
+*.sqlite3
+*.log
+
+# Superseded pre-Hermes application artifacts
+/app.py
+/web/
+/-w
+/部署收尾说明.md
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

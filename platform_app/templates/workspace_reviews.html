@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}AI解析待确认 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+<section class="workspace-shell">
+  <section class="workspace-stage">
+    <div class="workspace-copy">
+      <p class="panel-kicker">AI Review Queue</p>
+      <h2>AI解析待确认</h2>
+      <div class="portal-chip-row">
+        <span class="portal-chip">待确认 {{ stats.pending_count }}</span>
+        <span class="portal-chip soft">今日新增 {{ stats.today_count }}</span>
+        <span class="portal-chip soft">疑似匹配 {{ stats.matched_count }}</span>
+      </div>
+    </div>
+    <div class="workspace-stage-side">
+      {% if can_edit_projects(current_user) %}
+        <form class="upload-inline workspace-upload-form" action="/upload" method="post" enctype="multipart/form-data" data-parse-upload-form data-parse-label="AI 正在新增解析任务">
+          <label class="file-input">
+            <span>继续上传招标文件</span>
+            <input type="file" name="source_file" accept=".pdf,.docx,.doc,.txt,.md,.csv" required>
+          </label>
+          <button class="primary-btn" type="submit">新增解析任务</button>
+        </form>
+      {% endif %}
+      <div class="workspace-inline-actions">
+        <a class="ghost-btn" href="{{ workspace_projects_path }}">返回在投项目管理</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <p class="stat-label">待确认任务</p>
+      <p class="stat-value">{{ stats.pending_count }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">今日新增</p>
+      <p class="stat-value">{{ stats.today_count }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">新项目文件</p>
+      <p class="stat-value">{{ stats.intake_count }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">补充文件</p>
+      <p class="stat-value">{{ stats.supplement_count }}</p>
+    </article>
+    <article class="stat-card">
+      <p class="stat-label">疑似已有项目</p>
+      <p class="stat-value">{{ stats.matched_count }}</p>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Pending Queue</p>
+        <h3>待确认任务</h3>
+      </div>
+    </div>
+    <div class="workspace-review-grid">
+      {% for item in pending_reviews %}
+        <a class="portal-project-card workspace-review-card" href="{{ item.review_url }}">
+          <div class="portal-project-top">
+            <div class="portal-project-heading">
+              <strong>{{ item.file_name }}</strong>
+              <span>{{ format_datetime(item.created_at) or "-" }}{% if item.created_by %} · {{ item.created_by }}{% endif %}</span>
+            </div>
+            <em>{{ item.kind_label }}</em>
+          </div>
+          <div class="chip-row">
+            <span class="status-pill ready">{{ item.status_label }}</span>
+            <span class="status-pill">{{ item.ai_mode_label }}</span>
+            {% if item.matched_project_name %}
+              <span class="status-pill pending">疑似匹配：{{ item.matched_project_name }}</span>
+            {% elif item.matched_project_id %}
+              <span class="status-pill pending">疑似匹配项目 #{{ item.matched_project_id }}</span>
+            {% else %}
+              <span class="status-pill pending">待创建新项目</span>
+            {% endif %}
+          </div>
+          <p class="portal-project-summary">{{ item.summary or "等待人工确认。点击进入逐字段核对。" }}</p>
+        </a>
+      {% else %}
+        <div class="empty-card">当前没有待确认解析任务。</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

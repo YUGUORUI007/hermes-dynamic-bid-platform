@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}编辑 {{ project.title }} - 合家投标{% endblock %}
+{% block content %}
+<a class="back-link" href="/projects/{{ project.id }}"><i data-lucide="arrow-left"></i>返回项目详情</a>
+<header class="page-title"><div><span class="eyebrow">动态内容编辑器</span><h1>编辑项目标签与内容</h1><p>内容必须符合 Schema 1.0；不接受任意 HTML、CSS 或脚本。</p></div></header>
+<form method="post" action="/projects/{{ project.id }}/dynamic-editor" class="editor-form">
+  <input type="hidden" name="expected_version" value="{{ project.version }}">
+  <aside class="editor-sidebar surface"><h2>项目外壳</h2><label><span>项目名称</span><input name="title" value="{{ project.title }}" required></label><label><span>状态</span><select name="status">{% for value,label in status_labels.items() %}<option value="{{ value }}" {% if project.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><label><span>负责人</span><input name="owner" value="{{ project.owner }}"></label><label><span>摘要</span><textarea name="summary" rows="5">{{ project.summary }}</textarea></label><div class="editor-meta">Schema {{ project.schema_version }} · 当前版本 {{ project.version }}</div></aside>
+  <section class="editor-main surface" data-dynamic-editor><header><div><h2>标签与内容</h2><p>按项目实际信息组织标签，修改会同步显示在右侧预览中。</p></div><div class="editor-head-actions"><button class="secondary-btn" type="button" data-editor-mode="visual"><i data-lucide="layout-template"></i>可视化</button><button class="secondary-btn" type="button" data-editor-mode="json"><i data-lucide="braces"></i>JSON</button><a class="icon-btn" href="/api/v1/schema/project" target="_blank" aria-label="查看 Schema" title="查看 Schema"><i data-lucide="book-open"></i></a></div></header>
+    <textarea class="code-editor" name="content_json" spellcheck="false" required hidden>{{ content_json }}</textarea>
+    <div class="visual-editor" data-editor-visual>
+      <div class="builder-pane"><div class="builder-toolbar"><strong>内容结构</strong><button class="secondary-btn" type="button" data-add-section><i data-lucide="plus"></i>添加标签页</button></div><div class="section-builder-list" data-section-list></div></div>
+      <aside class="preview-pane"><div class="preview-heading"><strong>实时预览</strong><small>安全文本渲染</small></div><div class="editor-preview" data-editor-preview></div></aside>
+    </div>
+    <div class="json-editor-pane" data-editor-json hidden><div class="json-note">高级模式适合整体粘贴 Hermes 生成的 Schema 1.0 内容。切回可视化模式时会先校验 JSON 语法。</div><textarea class="code-editor" data-json-source spellcheck="false"></textarea></div>
+    <div class="editor-error" data-editor-error role="alert" hidden></div>
+    <footer><a class="secondary-btn" href="/projects/{{ project.id }}">取消</a><button class="primary-btn" type="submit"><i data-lucide="save"></i>保存更改</button></footer>
+  </section>
+</form>
+{% endblock %}

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}解析确认 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+<section class="workspace-shell">
+  <section class="workspace-stage page-stage detail-stage">
+    <div class="workspace-copy">
+      <p class="panel-kicker">Extraction Review</p>
+      <h2>解析确认</h2>
+      <p class="portal-lead">{{ job.project_file.original_name }}{% if candidate_project %} · 疑似匹配项目：{{ candidate_project.name }}{% endif %} · 当前解析模式：{{ job.ai_model or "未标记" }}</p>
+      <div class="portal-chip-row">
+        <span class="portal-chip">待确认字段 {{ fields|length }} 项</span>
+        <span class="portal-chip soft">有来源可入库 {{ review_field_stats.source_ready }}</span>
+        <span class="portal-chip soft">结构化要点 {{ draft_requirements|length }}</span>
+      </div>
+      <div class="detail-stage-metrics">
+        <article class="inline-stat">
+          <span>人工填写</span>
+          <strong>{{ review_field_stats.manual }}</strong>
+        </article>
+        <article class="inline-stat">
+          <span>缺少来源</span>
+          <strong>{{ review_field_stats.source_missing }}</strong>
+        </article>
+        <article class="inline-stat">
+          <span>空值</span>
+          <strong>{{ review_field_stats.empty }}</strong>
+        </article>
+      </div>
+    </div>
+    <div class="workspace-stage-side detail-stage-side">
+      <div class="workspace-inline-actions">
+        <a class="ghost-btn" href="{{ workspace_reviews_path }}">返回待确认队列</a>
+        <a class="ghost-btn" href="/reviews/{{ job.id }}/source">下载源文件</a>
+        {% if candidate_project %}
+          <a class="ghost-btn" href="/projects/{{ candidate_project.id }}">查看疑似项目</a>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <nav class="page-anchor-nav" aria-label="解析确认分区导航">
+    <a href="#review-evidence">解析依据</a>
+    {% if candidate_project %}<a href="#review-match">疑似项目</a>{% endif %}
+    <a href="#review-fields">字段核对</a>
+    <a href="#review-requirements">投标准备要点</a>
+    <a href="#review-actions">确认操作</a>
+  </nav>
+
+  <div class="notice {% if runtime_status.ai_configured %}notice-info{% else %}notice-warning{% endif %}">
+    解析模式：{{ job.ai_model or "未标记" }}{% if not runtime_status.ai_configured %}，DeepSeek 未启用{% endif %}。
+  </div>
+  <section class="panel section-panel review-evidence scroll-target" id="review-evidence">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Evidence First</p>
+        <h3>解析依据总览</h3>
+      </div>
+    </div>
+    <div class="dashboard-grid">
+      <article class="quote-card">
+        <strong>解析摘要</strong>
+        <p>{{ extraction_summary or "当前没有可展示的解析摘要，请直接结合下方字段依据和源文件核对。" }}</p>
+      </article>
+    </div>
+    <div class="detail-grid review-stats">
+      <article class="detail-card">
+        <span>有来源，可入库</span>
+        <strong>{{ review_field_stats.source_ready }}</strong>
+      </article>
+      <article class="detail-card">
+        <span>人工填写</span>
+        <strong>{{ review_field_stats.manual }}</strong>
+      </article>
+      <article class="detail-card">
+        <span>缺少来源</span>
+        <strong>{{ review_field_stats.source_missing }}</strong>
+      </article>
+      <article class="detail-card">
+        <span>空值</span>
+        <strong>{{ review_field_stats.empty }}</strong>
+      </article>
+    </div>
+    <details class="review-preview">
+      <summary>查看提取文本预览{% if extracted_text_truncated %}（已截断）{% endif %}</summary>
+      {% if extracted_text_preview %}
+        <pre class="text-preview">{{ extracted_text_preview }}</pre>
+      {% else %}
+        <div class="empty-card">当前没有提取文本预览。</div>
+      {% endif %}
+    </details>
+  </section>
+  {% if candidate_project %}
+    <section class="panel section-panel scroll-target" id="review-match">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">Matched Project</p>
+          <h3>疑似已有项目</h3>
+        </div>
+      </div>
+      <div class="detail-grid">
+        <article class="detail-card">
+          <span>项目名称</span>
+          <strong>{{ candidate_project.name }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>当前状态</span>
+          <strong>{{ status_labels.get(candidate_project.status, candidate_project.status) }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>招标编号</span>
+          <strong>{{ candidate_project.tender_code or "-" }}</strong>
+        </article>
+        <article class="detail-card">
+          <span>负责人</span>
+          <strong>{{ candidate_project.owner_name or "-" }}</strong>
+        </article>
+      </div>
+      <div class="dashboard-grid review-requirements">
+        <div class="quote-list">
+          {% for file in candidate_project_files %}
+            <article class="quote-card">
+              <strong>{{ file.original_name }}</strong>
+              <span>{{ format_datetime(file.created_at) }} · {% if file.deleted_at %}已清理{% else %}仍可查阅{% endif %}</span>
+            </article>
+          {% else %}
+            <div class="empty-card">这个候选项目当前还没有已绑定文件。</div>
+          {% endfor %}
+        </div>
+        <div class="quote-list">
+          {% for milestone in candidate_project_milestones %}
+            <article class="quote-card">
+              <strong>{{ milestone.title }}</strong>
+              <span>{{ milestone_type_labels.get(milestone.milestone_type, milestone.milestone_type) }} · {{ milestone_status_labels.get(milestone.status, milestone.status) }}</span>
+              <p>{% if milestone.due_at %}{{ format_datetime(milestone.due_at) }}{% else %}待补充时间{% endif %}</p>
+            </article>
+          {% else %}
+            <div class="empty-card">这个候选项目当前还没有关键节点。</div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+  <div class="review-grid scroll-target" id="review-fields">
+    <div class="panel section-panel">
+      <h3>字段核对</h3>
+      <div class="field-list">
+        {% for field in fields %}
+          <form method="post" action="/reviews/{{ job.id }}/field" class="field-row">
+            <input type="hidden" name="field_id" value="{{ field.id }}">
+            <div>
+              <strong>{{ field.field_label }}</strong>
+              <span>{{ field.field_key }}</span>
+              <em class="field-status status-{{ field.review_queue_status }}">{{ field.review_queue_label }}</em>
+            </div>
+            <input type="text" name="final_value" value="{{ field.final_value or field.extracted_value or '' }}">
+            <button class="ghost-btn" type="submit">保存</button>
+            <small>{{ field.confidence or "unknown" }}</small>
+          </form>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="panel section-panel">
+      <h3>来源依据</h3>
+      <div class="quote-list">
+        {% for field in fields %}
+          <article class="quote-card">
+            <strong>{{ field.field_label }}</strong>
+            <span>{{ field.source_location or "未提供来源位置" }}</span>
+            <p>{{ field.source_quote or "无原文摘录。" }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <section class="panel section-panel review-requirements scroll-target" id="review-requirements">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Structured Requirements</p>
+        <h3>投标准备要点草稿</h3>
+      </div>
+    </div>
+    <div class="quote-list">
+      {% for item in draft_requirements %}
+        <article class="quote-card">
+          <strong>{{ requirement_category_labels.get(item.category, item.category) }} · {{ item.title }}</strong>
+          <span>{{ requirement_importance_labels.get(item.importance, item.importance) }}优先级{% if item.source_location %} · {{ item.source_location }}{% endif %}</span>
+          <p>{{ item.content }}</p>
+          <span>{% if item.source_quote %}依据：{{ item.source_quote }}{% else %}当前未附原文摘录，请结合源文件核对。{% endif %}</span>
+        </article>
+      {% else %}
+        <div class="empty-card">当前解析结果还没有生成结构化投标准备要点。</div>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="panel scroll-target" id="review-actions">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Confirm Action</p>
+        <h3>确认操作</h3>
+      </div>
+    </div>
+    <div class="form-actions">
+      <form method="post" action="/reviews/{{ job.id }}/confirm">
+        <input type="hidden" name="action" value="{% if candidate_project %}update{% else %}create{% endif %}">
+        <button class="primary-btn" type="submit">{% if candidate_project %}确认更新已有项目{% else %}确认创建项目{% endif %}</button>
+      </form>
+      <form method="post" action="/reviews/{{ job.id }}/confirm">
+        <input type="hidden" name="action" value="reject">
+        <button class="ghost-btn" type="submit">驳回解析结果</button>
+      </form>
+    </div>
+  </section>
+</section>
+{% endblock %}

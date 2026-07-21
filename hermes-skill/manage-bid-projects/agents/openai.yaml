@@ -1,0 +1,4 @@
+interface:
+  display_name: "投标项目管理"
+  short_description: "用户确认后将动态招标项目信息安全同步到合家投标管理平台"
+  default_prompt: "整理我提供的招标文件或信息，先给我确认，再同步到投标项目平台。"

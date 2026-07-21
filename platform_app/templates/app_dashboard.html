@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}工作台 - 合家投标{% endblock %}
+{% block content %}
+<header class="page-title">
+  <div><span class="eyebrow">项目运营</span><h1>投标工作台</h1><p>聚焦正在推进的项目、关键时限和执行风险。</p></div>
+  {% if can_edit_projects(current_user) %}<a class="primary-btn" href="{{ workspace_projects_path }}#manual-create"><i data-lucide="plus"></i>新建项目</a>{% endif %}
+</header>
+
+<section class="overview-strip">
+  <div class="overview-intro"><span>今日工作摘要</span><strong>{% if workspace.upcoming %}先处理 {{ workspace.upcoming[0].title }}{% else %}当前没有七天内到期节点{% endif %}</strong><p>{% if workspace.upcoming %}{{ workspace.upcoming[0].deadline_label }} · {{ format_datetime(workspace.upcoming[0].deadline_at) }}{% else %}可以检查项目资料完整性或更新历史结果。{% endif %}</p></div>
+  <div class="metric"><label><i data-lucide="briefcase-business"></i>在投项目</label><strong>{{ workspace.metrics.active }}</strong><small>统一项目池</small></div>
+  <div class="metric"><label><i data-lucide="calendar-clock"></i>7 天内截止</label><strong>{{ workspace.metrics.due_seven_days }}</strong><small>按最近节点排序</small></div>
+  <div class="metric"><label><i data-lucide="shield-alert"></i>紧急节点</label><strong class="hot">{{ workspace.metrics.urgent }}</strong><small>48 小时内</small></div>
+</section>
+
+<div class="section-row"><div><h2>近期关键节点</h2><p>按时间与风险排序</p></div><a class="secondary-btn" href="/workspace/calendar"><i data-lucide="calendar-days"></i>查看日程</a></div>
+<section class="deadline-grid">
+  {% for item in workspace.upcoming[:3] %}
+  <a class="deadline {% if loop.index == 1 %}danger{% elif loop.index == 2 %}warning{% endif %}" href="/projects/{{ item.id }}">
+    <span class="datebox"><strong>{{ item.deadline_at.day }}</strong><small>{{ item.deadline_at.month }} 月</small></span>
+    <span class="deadline-body"><strong>{{ item.deadline_label }}</strong><small>{{ item.title }} · {{ item.deadline_at.strftime('%H:%M') }}</small></span><i class="urgency"></i>
+  </a>
+  {% else %}<div class="empty-inline">当前没有七天内的关键节点。</div>{% endfor %}
+</section>
+
+<div class="section-row"><div><h2>进行中的项目</h2><p>{{ workspace.projects|length }} 个项目</p></div><a class="text-link" href="{{ workspace_projects_path }}">查看全部 <i data-lucide="arrow-right"></i></a></div>
+<section class="project-surface">
+  <div class="project-table-head"><span>项目</span><span>状态</span><span>负责人</span><span class="desktop-column">下一节点</span><span class="desktop-column">最近更新</span><span></span></div>
+  {% with projects=workspace.projects[:6] %}{% include "_project_rows.html" %}{% endwith %}
+</section>
+{% endblock %}
+

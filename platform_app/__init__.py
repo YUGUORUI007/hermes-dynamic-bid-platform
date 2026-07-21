@@ -1,0 +1,1 @@
+"""Bid platform application package."""

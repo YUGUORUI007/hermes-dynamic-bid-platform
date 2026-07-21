@@ -1,0 +1,10 @@
+{
+  "name": "hermes-bid-platform-visual-tests",
+  "private": true,
+  "scripts": {
+    "test:visual": "node tests/visual_acceptance.js"
+  },
+  "devDependencies": {
+    "playwright": "1.61.1"
+  }
+}

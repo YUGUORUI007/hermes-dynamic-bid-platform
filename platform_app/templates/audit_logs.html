@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}操作记录 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+<section class="workspace-shell">
+  <section class="workspace-stage page-stage">
+    <div class="workspace-copy">
+      <p class="panel-kicker">Audit Trail</p>
+      <h2>操作记录</h2>
+      <div class="portal-chip-row">
+        <span class="portal-chip">当前展示 {{ logs|length }}</span>
+        <span class="portal-chip soft">人 / 项目 / 动作</span>
+      </div>
+    </div>
+    <div class="workspace-stage-side detail-stage-side">
+      <div class="workspace-inline-actions">
+        <a class="ghost-btn" href="{{ workspace_settings_path }}">返回系统设置</a>
+        <a class="ghost-btn" href="{{ workspace_projects_path }}">查看在投项目管理</a>
+      </div>
+      <div class="detail-stage-metrics">
+        <article class="inline-stat">
+          <span>当前展示</span>
+          <strong>{{ logs|length }}</strong>
+        </article>
+        <article class="inline-stat">
+          <span>追溯维度</span>
+          <strong>人 / 项目 / 动作</strong>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel scroll-target" id="audit-table">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Recent Events</p>
+        <h3>操作记录</h3>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>操作人</th>
+            <th>角色</th>
+            <th>动作</th>
+            <th>对象</th>
+            <th>项目</th>
+            <th>详情</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in logs %}
+            <tr>
+              <td>{{ format_datetime(item.created_at) or "-" }}</td>
+              <td>{{ item.actor_name or "-" }}</td>
+              <td>{{ role_labels.get(item.actor_role, item.actor_role or "-") }}</td>
+              <td>{{ audit_action_labels.get(item.action, item.action) }}</td>
+              <td>{{ item.entity_type }}{% if item.entity_id %} #{{ item.entity_id }}{% endif %}</td>
+              <td>{{ item.project_name or "-" }}</td>
+              <td>{{ item.detail or "-" }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="7">当前还没有操作记录。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
+{% endblock %}

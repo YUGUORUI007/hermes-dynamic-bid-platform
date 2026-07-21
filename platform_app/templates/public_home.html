@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}公开看板 - 投标项目智能管理平台{% endblock %}
+{% block content %}
+<section class="portal-shell">
+  <section class="portal-stage">
+    <div class="portal-copy portal-dashboard-head">
+      <div>
+        <p class="panel-kicker">Bid Board</p>
+        <h2>公开看板</h2>
+      </div>
+    </div>
+    <div class="portal-signal">
+      <article class="signal-card signal-primary">
+        <span>在投项目</span>
+        <strong>{{ dashboard.active_count }}</strong>
+      </article>
+      <article class="signal-card">
+        <span>待结果</span>
+        <strong>{{ dashboard.pending_result_count }}</strong>
+      </article>
+      <article class="signal-card">
+        <span>本周开标</span>
+        <strong>{{ dashboard.week_bid_open_count }}</strong>
+      </article>
+      <article class="signal-card">
+        <span>已投记录</span>
+        <strong>{{ dashboard.archived_count }}</strong>
+      </article>
+    </div>
+  </section>
+
+  <section class="portal-grid">
+    <section class="portal-panel">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Active Pipeline</p>
+          <h3>在投项目</h3>
+        </div>
+      </div>
+      <div class="portal-card-list">
+        {% for item in dashboard.active_projects %}
+          <a class="portal-project-card risk-{{ item.stage.risk_level }}" href="/projects/{{ item.project.id }}">
+            <div class="portal-project-top">
+              <div class="portal-project-heading">
+                <strong>{{ item.card.project_name }}</strong>
+                <span>{{ item.project.tender_code or "未填写招标编号" }}</span>
+              </div>
+              <em>{{ item.stage.stage_label }}</em>
+            </div>
+            <div class="portal-chip-row portal-project-status-row">
+              <span class="portal-chip">{{ item.stage.next_label }}</span>
+              {% if item.stage.next_due_text %}
+                <span class="portal-chip soft">{{ item.stage.next_due_text }}</span>
+              {% endif %}
+              <span class="status-pill {{ item.card.bid_document_status_class }}">标书：{{ item.card.bid_document_status_label }}</span>
+              <span class="status-pill {% if item.stage.risk_level == 'critical' %}danger{% elif item.stage.risk_level == 'warning' %}warning{% elif item.stage.risk_level == 'normal' %}success{% else %}pending{% endif %}">{{ item.card.risk_label }}</span>
+            </div>
+            <div class="portal-project-meta-grid">
+              <article class="portal-project-meta">
+                <span>项目地点</span>
+                <strong>{{ item.card.address }}</strong>
+              </article>
+              <article class="portal-project-meta">
+                <span>开标地点</span>
+                <strong>{{ item.card.bid_location }}</strong>
+              </article>
+              <article class="portal-project-meta">
+                <span>开标时间</span>
+                <strong>{{ item.card.bid_datetime_text }}</strong>
+              </article>
+              <article class="portal-project-meta">
+                <span>保证金金额</span>
+                <strong>{{ item.card.deposit_amount_text }}</strong>
+              </article>
+            </div>
+            <div class="portal-chip-row">
+              <span class="status-pill {{ item.card.deposit_status_class }}">保证金：{{ item.card.deposit_status_label }}</span>
+              <span class="status-pill {{ item.card.submission_status_class }}">递交：{{ item.card.submission_status_label }}</span>
+              <span class="status-pill {{ item.card.defense_label_class }}">{{ item.card.defense_label }}</span>
+            </div>
+            <div class="portal-project-brief-grid">
+              <article class="portal-project-brief">
+                <span>递交提醒</span>
+                <strong>{{ item.card.submission_focus }}</strong>
+              </article>
+              <article class="portal-project-brief">
+                <span>封标提醒</span>
+                <strong>{{ item.card.seal_focus }}</strong>
+              </article>
+              <article class="portal-project-brief full">
+                <span>废标关注</span>
+                <strong>{{ item.card.risk_focus }}</strong>
+              </article>
+            </div>
+            <div class="portal-project-summary">
+              <span>当前提醒</span>
+              <strong>{{ item.stage.risk_reason }}</strong>
+            </div>
+            {% if item.next_actions %}
+              <div class="portal-mini-list">
+                {% for action in item.next_actions %}
+                  <div class="portal-mini-item">
+                    <span>{{ action.label }}</span>
+                    <em>{% if action.due_at %}{{ action.due_at }}{% else %}待补充{% endif %}</em>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+            <div class="portal-project-footer">
+              <span>招标人：{{ item.card.buyer_text }}</span>
+              <strong>查看详情</strong>
+            </div>
+          </a>
+        {% else %}
+          <div class="empty-card">当前没有在投项目。</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="portal-panel">
+      <div class="panel-head panel-head-tight">
+        <div>
+          <p class="panel-kicker">Archive Record</p>
+          <h3>最近已投</h3>
+        </div>
+        <a class="text-link" href="/archives">查看全部</a>
+      </div>
+      <div class="portal-archive-grid">
+        {% for item in dashboard.archived_projects %}
+          <article class="portal-archive-card">
+            <div class="portal-archive-head">
+              <strong>{{ item.display_name }}</strong>
+            </div>
+            <div class="portal-archive-meta">
+              <span>投标时间</span>
+              <strong>{{ format_datetime(item.bid_at) or "未记录" }}</strong>
+            </div>
+          </article>
+        {% else %}
+          <div class="empty-card">当前还没有已投项目记录。</div>
+        {% endfor %}
+      </div>
+    </section>
+  </section>
+</section>
+{% endblock %}
