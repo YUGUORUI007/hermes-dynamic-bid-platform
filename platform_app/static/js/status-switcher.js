@@ -60,6 +60,11 @@
           if (!response.ok || !payload.ok) throw new Error(payload.detail || "流程状态更新失败，请稍后重试。");
           select.dataset.current = payload.state;
           const item = select.closest(".workflow-item");
+          if (payload.hidden) {
+            item?.remove();
+            showNotice(`${payload.state_label}已更新`);
+            return;
+          }
           if (item) {
             item.className = `workflow-item ${payload.tone}`;
             const label = item.querySelector("span");

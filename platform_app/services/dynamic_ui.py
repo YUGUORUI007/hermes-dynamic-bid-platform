@@ -78,6 +78,13 @@ def workflow_status_items(content: dict[str, Any], project_status: str, bid_date
     items = []
     for stage_id, label, pending_label, done_label in WORKFLOW_STAGES:
         state = saved.get(stage_id, "done" if stage_id in legacy_done else "pending")
+        # Qualification pre-review is project-specific. Omit it until Hermes has
+        # confirmed the tender requires it; a saved not_applicable state stays hidden.
+        if stage_id == "prequalification" and (
+            state == "not_applicable"
+            or (stage_id not in saved and project_status != "pending_prequalification")
+        ):
+            continue
         state_label = {"pending": pending_label, "in_progress": f"{label}进行中", "done": done_label, "not_applicable": f"{label}不适用"}.get(state, pending_label)
         tone = WORKFLOW_STATE_TONES.get(state, "neutral")
         refund_overdue_days = 0

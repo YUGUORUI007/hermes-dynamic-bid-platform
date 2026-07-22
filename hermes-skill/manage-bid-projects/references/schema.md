@@ -24,7 +24,7 @@ System lifecycle statuses currently used by the platform: `tracking`, `pending_s
 
 ## Parallel workflow
 
-Use `content.workflow` for the editable, concurrent bid-work items shown on the project detail page and summarized on the homepage. Valid keys are `signup`, `prequalification`, `deposit`, `proposal`, `sealing`, `delivery`, `bid_open`, and `deposit_refund`; each value is one of `pending`, `in_progress`, `done`, or `not_applicable`. When `bid_datetime` is more than 14 days ago and `deposit_refund` is not `done` or `not_applicable`, the platform highlights the pending refund as overdue.
+Use `content.workflow` for the editable, concurrent bid-work items shown on the project detail page and summarized on the homepage. Valid keys are `signup`, `prequalification`, `deposit`, `proposal`, `sealing`, `delivery`, `bid_open`, and `deposit_refund`; each value is one of `pending`, `in_progress`, `done`, or `not_applicable`. `prequalification` is optional: include it only when the tender requires qualification-pre-review materials. Omit it for projects without that requirement; the website will not show a qualification-pre-review status item. When `bid_datetime` is more than 14 days ago and `deposit_refund` is not `done` or `not_applicable`, the platform highlights the pending refund as overdue.
 
 Do not overwrite one completed item when updating another. For example, a project can have `deposit: "done"` and `proposal: "in_progress"` at the same time.
 

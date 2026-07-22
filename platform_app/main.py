@@ -59,7 +59,7 @@ from .models import (
 )
 from .services.ledger_import import read_ledger_rows
 from .services.project_archive import archive_project_data
-from .services.dynamic_ui import WORKFLOW_STAGE_IDS, build_archive_data, build_calendar_data, build_workspace_data, load_dynamic_content, serialize_project_detail
+from .services.dynamic_ui import WORKFLOW_STAGES, WORKFLOW_STAGE_IDS, build_archive_data, build_calendar_data, build_workspace_data, load_dynamic_content, serialize_project_detail
 from .services.ai_pipeline import (
     ANSWER_MODE_LABELS,
     FIELD_LABELS,
@@ -3196,7 +3196,10 @@ def create_app() -> FastAPI:
             db_user = session.get(User, user.id)
             add_audit_log(session, actor=db_user, action="update_project_workflow", entity_type="project", entity_id=project.id, project_name=project.name, detail=f"流程事项：{stage}={state}")
             workflow_items = serialize_project_detail(project)["workflow_items"]
-            item = next(item for item in workflow_items if item["id"] == stage)
+            item = next((item for item in workflow_items if item["id"] == stage), None)
+        if item is None:
+            stage_label = next(label for stage_id, label, _, _ in WORKFLOW_STAGES if stage_id == stage)
+            return JSONResponse({"ok": True, "stage": stage, "state": state, "state_label": f"{stage_label}不适用", "tone": "neutral", "hidden": True})
         return JSONResponse({"ok": True, "stage": stage, "state": state, "state_label": item["state_label"], "tone": item["tone"]})
 
     @app.get("/reviews/{job_id}", response_class=HTMLResponse)

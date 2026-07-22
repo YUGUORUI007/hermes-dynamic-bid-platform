@@ -41,6 +41,16 @@ class DeadlineSummaryTests(unittest.TestCase):
         completed = workflow_status_items({"workflow": {"deposit_refund": "done"}}, "submitted", now - timedelta(days=17), now)
         self.assertEqual(next(item for item in completed if item["id"] == "deposit_refund")["tone"], "success")
 
+    def test_only_shows_prequalification_when_the_project_requires_it(self):
+        default_items = workflow_status_items({}, "tracking")
+        self.assertNotIn("prequalification", [item["id"] for item in default_items])
+
+        required_items = workflow_status_items({"workflow": {"prequalification": "pending"}}, "tracking")
+        self.assertIn("prequalification", [item["id"] for item in required_items])
+
+        not_required_items = workflow_status_items({"workflow": {"prequalification": "not_applicable"}}, "tracking")
+        self.assertNotIn("prequalification", [item["id"] for item in not_required_items])
+
 
 if __name__ == "__main__":
     unittest.main()

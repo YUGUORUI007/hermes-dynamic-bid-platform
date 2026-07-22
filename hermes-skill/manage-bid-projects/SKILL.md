@@ -31,6 +31,7 @@ When invoked by a scheduled Hermes task, inspect active projects before asking t
 - Ask about a deadline within seven days; treat three days or fewer, overdue deadlines, and an unreturned deposit more than 14 days after bid opening as urgent.
 - Ask only the most actionable question per project in one check. Do not repeat the same unanswered question more than once per workday; group routine questions into one concise message.
 - Do not ask about a completed or not-applicable item unless later tender information creates a new requirement.
+- Include `content.workflow.prequalification` only when the tender explicitly requires qualification-pre-review materials. Omit it when no such requirement exists; use `not_applicable` only when clearing an item that was previously shown.
 - Ask for the internal project owner when it is missing. Never treat the purchaser, tender agent, or external contact as the owner.
 - State the project name, deadline or reason, current recorded progress, and the exact information needed. Example: “XX 项目资格预审资料三天后截止，当前未确认是否提交。资料是否已提交？”
 - Treat every reply as information collection only. Summarize the proposed updates and request explicit confirmation before any API write.
