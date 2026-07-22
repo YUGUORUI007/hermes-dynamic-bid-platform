@@ -23,6 +23,8 @@ class DeadlineSummaryTests(unittest.TestCase):
         self.assertEqual(entries[0]["tone"], "danger")
         self.assertEqual(entries[1]["tone"], "warning")
         self.assertEqual(entries[0]["project_id"], 7)
+        self.assertEqual(entries[0]["project_title"], "到期节点测试项目")
+        self.assertEqual(entries[0]["label"], "报名截止")
 
     def test_can_include_past_dates_for_calendar_history(self):
         now = datetime(2026, 7, 22, 9, 0)
