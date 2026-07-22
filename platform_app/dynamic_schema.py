@@ -34,7 +34,9 @@ WIDTHS = {"full", "half", "third"}
 CALLOUT_TONES = {"info", "success", "warning", "danger"}
 STATUS_TONES = {"neutral", "info", "success", "warning", "danger"}
 FIELD_SEMANTICS = {"text", "date", "datetime", "amount", "phone", "email", "url"}
-PROJECT_STATUSES = {"tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"}
+PROJECT_STATUSES = {"tracking", "pending_signup", "registered", "pending_prequalification", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"}
+WORKFLOW_STAGES = {"signup", "prequalification", "deposit", "proposal", "sealing", "delivery", "bid_open", "deposit_refund"}
+WORKFLOW_STATE_VALUES = {"pending", "in_progress", "done", "not_applicable"}
 SAFE_URL_SCHEMES = {"http", "https"}
 
 
@@ -176,7 +178,23 @@ def validate_content(content: Any, errors: list[dict[str, str]]) -> dict[str, An
             block_ids.add(block_id)
             normalized_section["blocks"].append(normalized_block)
         normalized_sections.append(normalized_section)
-    return {"sections": normalized_sections}
+    workflow = validate_workflow(content.get("workflow", {}), errors)
+    return {"sections": normalized_sections, "workflow": workflow}
+
+
+def validate_workflow(value: Any, errors: list[dict[str, str]]) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        errors.append(error("$.content.workflow", "invalid_type", "workflow 必须是对象。"))
+        return {}
+    normalized: dict[str, str] = {}
+    for stage, state in value.items():
+        if stage not in WORKFLOW_STAGES:
+            errors.append(error(f"$.content.workflow.{stage}", "unknown_key", "不支持的流程事项。"))
+            continue
+        normalized[stage] = clean_enum(state, WORKFLOW_STATE_VALUES, f"$.content.workflow.{stage}", errors)
+    return normalized
 
 
 def validate_block(block: Any, path: str, errors: list[dict[str, str]]) -> dict[str, Any]:

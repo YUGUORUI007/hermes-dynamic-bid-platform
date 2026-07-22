@@ -28,7 +28,17 @@ from .auth import (
     normalize_role,
     verify_password,
 )
-from .config import INSTANCE_DIR, PROJECT_STORAGE_DIR, STATIC_DIR, STORAGE_DIR, TEMPLATES_DIR, TMP_DIR, get_secret_key, legacy_ai_routes_enabled
+from .config import (
+    INSTANCE_DIR,
+    PROJECT_STORAGE_DIR,
+    STATIC_DIR,
+    STORAGE_DIR,
+    TEMPLATES_DIR,
+    TMP_DIR,
+    get_secret_key,
+    is_open_access_mode,
+    legacy_ai_routes_enabled,
+)
 from .database import Base, engine, session_scope
 from .models import (
     ApiToken,
@@ -49,7 +59,7 @@ from .models import (
 )
 from .services.ledger_import import read_ledger_rows
 from .services.project_archive import archive_project_data
-from .services.dynamic_ui import build_archive_data, build_calendar_data, build_workspace_data, serialize_project_detail
+from .services.dynamic_ui import WORKFLOW_STAGE_IDS, build_archive_data, build_calendar_data, build_workspace_data, load_dynamic_content, serialize_project_detail
 from .services.ai_pipeline import (
     ANSWER_MODE_LABELS,
     FIELD_LABELS,
@@ -81,6 +91,7 @@ STATUS_LABELS = {
     "tracking": "待跟进",
     "pending_signup": "待报名",
     "registered": "已报名",
+    "pending_prequalification": "待提交资格预审资料",
     "deposit_pending": "待缴保证金",
     "deposit_done": "保证金已汇出",
     "preparing": "待制作投标方案",
@@ -95,11 +106,11 @@ STATUS_LABELS = {
     "archived": "已归档",
 }
 
-ACTIVE_PROJECT_STATUSES = {"tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending"}
+ACTIVE_PROJECT_STATUSES = {"tracking", "pending_signup", "registered", "pending_prequalification", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending"}
 TERMINAL_PROJECT_STATUSES = {"won", "lost", "abandoned", "partner_completed", "archived"}
-PROJECT_STATUS_FLOW = ("tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending")
+PROJECT_STATUS_FLOW = ("tracking", "pending_signup", "registered", "pending_prequalification", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending")
 STATUS_TONES = {
-    "tracking": "warning", "pending_signup": "warning", "registered": "success", "deposit_pending": "warning",
+    "tracking": "warning", "pending_signup": "warning", "registered": "success", "pending_prequalification": "warning", "deposit_pending": "warning",
     "deposit_done": "info", "preparing": "warning", "sealed": "success", "ready_deliver": "danger",
     "submitted": "info", "result_pending": "success", "won": "success", "lost": "danger",
     "abandoned": "neutral", "partner_completed": "info", "archived": "neutral",
@@ -500,6 +511,7 @@ def render_template(name: str, request: Request, **context: object) -> HTMLRespo
         workspace_reviews_path=WORKSPACE_REVIEWS_PATH,
         workspace_archives_path=WORKSPACE_ARCHIVES_PATH,
         workspace_settings_path=WORKSPACE_SETTINGS_PATH,
+        open_access_mode=is_open_access_mode(),
         **context,
     )
     return HTMLResponse(html)
@@ -2214,6 +2226,8 @@ def create_app() -> FastAPI:
         user = require_user(request)
         if isinstance(user, RedirectResponse):
             return RedirectResponse("/login", status_code=302)
+        if is_open_access_mode():
+            return redirect_with_message(WORKSPACE_PROJECTS_PATH, "当前为内部只读访问模式，系统设置和人员权限暂不开放。")
         return render_workspace_settings_page(request, user=user, notice=request.query_params.get("notice"))
 
     @app.get("/login", response_class=HTMLResponse)
@@ -3152,6 +3166,38 @@ def create_app() -> FastAPI:
             db_user = session.get(User, user.id)
             add_audit_log(session, actor=db_user, action="update_project_status", entity_type="project", entity_id=project.id, project_name=project.name, detail=f"状态更新为：{status}")
         return JSONResponse({"ok": True, "status": status, "status_label": STATUS_LABELS[status]})
+
+    @app.patch("/api/projects/{project_id}/workflow/{stage}")
+    async def update_project_workflow_api(project_id: int, stage: str, request: Request):
+        user = get_current_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="请先登录。")
+        if not can_edit_projects(user):
+            raise HTTPException(status_code=403, detail="当前账号没有项目编辑权限。")
+        if stage not in WORKFLOW_STAGE_IDS:
+            raise HTTPException(status_code=422, detail="不支持的流程事项。")
+        try:
+            body = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPException(status_code=400, detail="请求体必须是 JSON。")
+        state = body.get("state") if isinstance(body, dict) else None
+        if state not in {"pending", "in_progress", "done", "not_applicable"}:
+            raise HTTPException(status_code=422, detail="不支持的流程状态。")
+        with session_scope() as session:
+            project = session.get(Project, project_id)
+            if project is None:
+                raise HTTPException(status_code=404, detail="项目不存在。")
+            content = load_dynamic_content(project)
+            workflow = content.get("workflow") if isinstance(content.get("workflow"), dict) else {}
+            workflow[stage] = state
+            content["workflow"] = workflow
+            project.dynamic_content = json.dumps(content, ensure_ascii=False)
+            project.updated_at = datetime.utcnow()
+            db_user = session.get(User, user.id)
+            add_audit_log(session, actor=db_user, action="update_project_workflow", entity_type="project", entity_id=project.id, project_name=project.name, detail=f"流程事项：{stage}={state}")
+            workflow_items = serialize_project_detail(project)["workflow_items"]
+            item = next(item for item in workflow_items if item["id"] == stage)
+        return JSONResponse({"ok": True, "stage": stage, "state": state, "state_label": item["state_label"], "tone": item["tone"]})
 
     @app.get("/reviews/{job_id}", response_class=HTMLResponse)
     def review_detail(job_id: int, request: Request):

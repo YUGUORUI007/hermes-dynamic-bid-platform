@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {
     "title": {"type": "string", "minLength": 1, "maxLength": 255},
-    "status": {"enum": ["tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"]},
+    "status": {"enum": ["tracking", "pending_signup", "registered", "pending_prequalification", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"]},
     "owner": {"type": "string", "maxLength": 128},
     "summary": {"type": "string", "maxLength": 4000},
     "schema_version": {"const": "1.0"},
@@ -23,7 +23,8 @@
           "type": "array",
           "maxItems": 24,
           "items": {"$ref": "#/$defs/section"}
-        }
+        },
+        "workflow": {"type": "object", "additionalProperties": false, "properties": {"signup":{"enum":["pending","in_progress","done","not_applicable"]},"prequalification":{"enum":["pending","in_progress","done","not_applicable"]},"deposit":{"enum":["pending","in_progress","done","not_applicable"]},"proposal":{"enum":["pending","in_progress","done","not_applicable"]},"sealing":{"enum":["pending","in_progress","done","not_applicable"]},"delivery":{"enum":["pending","in_progress","done","not_applicable"]},"bid_open":{"enum":["pending","in_progress","done","not_applicable"]},"deposit_refund":{"enum":["pending","in_progress","done","not_applicable"]}}}
       }
     }
   },

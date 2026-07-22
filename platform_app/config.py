@@ -49,6 +49,11 @@ def get_app_name() -> str:
     return os.getenv("BID_PLATFORM_APP_NAME", "bid-platform")
 
 
+def is_open_access_mode() -> bool:
+    """Whether trusted internal users can browse the workspace without login."""
+    return os.getenv("BID_PLATFORM_AUTH_MODE", "required").strip().lower() == "open"
+
+
 def get_public_base_url() -> str:
     return os.getenv("BID_PLATFORM_PUBLIC_BASE_URL", "http://127.0.0.1:8010").rstrip("/")
 

@@ -10,11 +10,12 @@ from ..dynamic_schema import SCHEMA_VERSION
 from ..models import ArchivedProject, Project
 
 
-ACTIVE_STATUSES = {"tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending"}
+ACTIVE_STATUSES = {"tracking", "pending_signup", "registered", "pending_prequalification", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending"}
 STATUS_LABELS = {
     "tracking": "进行中",
     "pending_signup": "待报名",
     "registered": "已报名",
+    "pending_prequalification": "待提交资格预审资料",
     "deposit_pending": "待缴保证金",
     "deposit_done": "保证金已汇出",
     "preparing": "待制作投标方案",
@@ -32,6 +33,7 @@ STATUS_TONES = {
     "tracking": "warning",
     "pending_signup": "warning",
     "registered": "success",
+    "pending_prequalification": "warning",
     "deposit_pending": "warning",
     "deposit_done": "info",
     "preparing": "warning",
@@ -45,6 +47,46 @@ STATUS_TONES = {
     "partner_completed": "info",
     "archived": "neutral",
 }
+
+WORKFLOW_STAGES = (
+    ("signup", "报名", "待报名", "已报名"),
+    ("prequalification", "资格预审资料", "待提交资格预审资料", "资格预审资料已提交"),
+    ("deposit", "保证金", "待缴保证金", "保证金已汇出"),
+    ("proposal", "标书制作", "待制作标书", "标书已制作"),
+    ("sealing", "封标", "待封标", "已封标"),
+    ("delivery", "送标", "待送标", "已送标"),
+    ("bid_open", "开标", "待开标", "已开标"),
+    ("deposit_refund", "投标保证金退还", "投标保证金待退还", "投标保证金已退还"),
+)
+WORKFLOW_STAGE_IDS = {stage[0] for stage in WORKFLOW_STAGES}
+WORKFLOW_STATE_TONES = {"pending": "warning", "in_progress": "info", "done": "success", "not_applicable": "neutral"}
+
+
+def workflow_status_items(content: dict[str, Any], project_status: str, bid_datetime: datetime | None = None, now: datetime | None = None) -> list[dict[str, str]]:
+    now = now or datetime.now()
+    saved = content.get("workflow") if isinstance(content.get("workflow"), dict) else {}
+    legacy_done = {
+        "registered": {"signup"},
+        "pending_prequalification": {"signup"},
+        "deposit_pending": {"signup", "prequalification"},
+        "deposit_done": {"signup", "prequalification", "deposit"},
+        "preparing": {"signup", "prequalification", "deposit"},
+        "sealed": {"signup", "prequalification", "deposit", "proposal", "sealing"},
+        "ready_deliver": {"signup", "prequalification", "deposit", "proposal", "sealing"},
+        "submitted": {"signup", "prequalification", "deposit", "proposal", "sealing", "delivery"},
+    }.get(project_status, set())
+    items = []
+    for stage_id, label, pending_label, done_label in WORKFLOW_STAGES:
+        state = saved.get(stage_id, "done" if stage_id in legacy_done else "pending")
+        state_label = {"pending": pending_label, "in_progress": f"{label}进行中", "done": done_label, "not_applicable": f"{label}不适用"}.get(state, pending_label)
+        tone = WORKFLOW_STATE_TONES.get(state, "neutral")
+        refund_overdue_days = 0
+        if stage_id == "deposit_refund" and state in {"pending", "in_progress"} and bid_datetime and now.date() > (bid_datetime + timedelta(days=14)).date():
+            refund_overdue_days = (now.date() - (bid_datetime + timedelta(days=14)).date()).days
+            tone = "danger"
+            state_label = f"投标保证金待退还（逾期 {refund_overdue_days} 天）"
+        items.append({"id": stage_id, "label": label, "state": state, "state_label": state_label, "tone": tone, "refund_overdue_days": refund_overdue_days})
+    return items
 
 
 def load_dynamic_content(project: Project) -> dict[str, Any]:
@@ -153,16 +195,16 @@ DEADLINE_FIELDS = (
 )
 
 
-def project_deadline_entries(project: Project, now: datetime | None = None, *, within_days: int | None = None) -> list[dict[str, Any]]:
+def project_deadline_entries(project: Project, now: datetime | None = None, *, within_days: int | None = None, include_past: bool = False) -> list[dict[str, Any]]:
     now = now or datetime.now()
     cutoff = now + timedelta(days=within_days) if within_days is not None else None
     entries = []
     for field_name, label in DEADLINE_FIELDS:
         deadline_at = getattr(project, field_name, None)
-        if deadline_at is None or deadline_at < now or (cutoff and deadline_at > cutoff):
+        if deadline_at is None or (not include_past and deadline_at < now) or (cutoff and deadline_at > cutoff):
             continue
-        seconds_left = max(0, (deadline_at - now).total_seconds())
-        days_left = math.ceil(seconds_left / 86400)
+        seconds_left = (deadline_at - now).total_seconds()
+        days_left = max(0, math.ceil(seconds_left / 86400))
         entries.append(
             {
                 "label": label,
@@ -215,6 +257,7 @@ def serialize_project_card(project: Project, now: datetime | None = None) -> dic
         "deadline_label": deadline[0] if deadline else "暂无近期节点",
         "deadline_at": deadline[1] if deadline else None,
         "content": content,
+        "workflow_items": workflow_status_items(content, project.status, project.bid_datetime),
         "agency": project.agency or "未登记",
         "contact_name": project.contact_name or "未登记",
         "contact_phone": project.contact_phone or "未登记",
@@ -256,14 +299,9 @@ def build_calendar_data(session, year: int, month: int) -> dict[str, Any]:
     projects = session.query(Project).filter(Project.status.in_(sorted(ACTIVE_STATUSES))).all()
     events: list[dict[str, Any]] = []
     for project in projects:
-        for label, value, tone in (
-            ("报名截止", project.signup_deadline, "info"),
-            ("保证金截止", project.deposit_deadline, "danger"),
-            ("文件递交", project.submission_datetime, "warning"),
-            ("开标", project.bid_datetime, "danger"),
-        ):
-            if value and value.year == year and value.month == month:
-                events.append({"project_id": project.id, "project_name": project.name, "label": label, "at": value, "tone": tone})
+        for entry in project_deadline_entries(project, include_past=True):
+            if entry["deadline_at"].year == year and entry["deadline_at"].month == month:
+                events.append({"project_id": project.id, "project_name": project.name, "label": entry["label"], "at": entry["deadline_at"], "tone": entry["tone"]})
     events.sort(key=lambda item: item["at"])
     event_map: dict[str, list[dict[str, Any]]] = {}
     for event in events:

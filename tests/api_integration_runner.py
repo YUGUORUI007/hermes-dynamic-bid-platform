@@ -73,6 +73,7 @@ payload = {
     "summary": "用于验证动态项目 API。",
     "schema_version": "1.0",
     "content": {
+        "workflow": {"signup": "done", "deposit": "pending", "proposal": "in_progress", "deposit_refund": "pending"},
         "sections": [
             {
                 "id": "overview",
@@ -90,7 +91,7 @@ payload = {
 schema_response = client.get("/api/v1/schema/project", headers=headers)
 assert schema_response.status_code == 200, schema_response.text
 assert "table" in schema_response.json()["block_types"]
-for workflow_status in ("pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver"):
+for workflow_status in ("pending_signup", "registered", "pending_prequalification", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver"):
     assert validate_project_payload({**payload, "status": workflow_status})["status"] == workflow_status
 openapi = client.get("/openapi.json").json()
 for path, method in (("/api/v1/validate/project", "post"), ("/api/v1/projects", "post"), ("/api/v1/projects/{project_id}", "patch"), ("/api/v1/projects/{project_id}/followups", "post"), ("/api/v1/projects/{project_id}/status", "post"), ("/api/v1/projects/{project_id}/archive", "post")):
@@ -178,10 +179,18 @@ assert web_status_update.json() == {"ok": True, "status": "registered", "status_
 with session_scope() as session:
     assert session.get(Project, project_id).status == "registered"
     assert session.query(AuditLog).filter(AuditLog.entity_id == project_id, AuditLog.action == "update_project_status").count() >= 1
+workflow_update = client.patch(f"/api/projects/{project_id}/workflow/deposit", json={"state": "done"})
+assert workflow_update.status_code == 200, workflow_update.text
+assert workflow_update.json()["state_label"] == "保证金已汇出"
+invalid_workflow = client.patch(f"/api/projects/{project_id}/workflow/not-a-stage", json={"state": "done"})
+assert invalid_workflow.status_code == 422, invalid_workflow.text
+with session_scope() as session:
+    assert json.loads(session.get(Project, project_id).dynamic_content)["workflow"]["deposit"] == "done"
+    assert session.query(AuditLog).filter(AuditLog.entity_id == project_id, AuditLog.action == "update_project_workflow").count() == 1
 editor_projects_page = client.get("/workspace/projects")
-assert 'class="status-select' in editor_projects_page.text
+assert "workflow-chips" in editor_projects_page.text
 viewer_projects_page = viewer_client.get("/workspace/projects")
-assert 'class="status-select' not in viewer_projects_page.text and '<em class="status' in viewer_projects_page.text
+assert "workflow-chips" in viewer_projects_page.text and 'class="status-select' not in viewer_projects_page.text
 
 token_create = client.post("/settings/api-tokens", data={"name": "Web test", "expires_in_days": "90", "projects_read": "1"}, follow_redirects=False)
 assert token_create.status_code in {302, 303}, f"{token_create.status_code} {token_create.headers} {token_create.text[:500]}"
@@ -210,7 +219,7 @@ detail_page = client.get(f"/projects/{project_id}")
 assert "<script>alert('xss')</script>" not in detail_page.text
 assert "&lt;script&gt;alert" in detail_page.text
 assert "项目状态" in detail_page.text and "代理机构：测试代理机构" in detail_page.text
-assert 'class="status-select' in detail_page.text and "标书已制作并封标" in detail_page.text
+assert 'class="workflow-state-select' in detail_page.text and "保证金已汇出" in detail_page.text
 editor_page = client.get(f"/projects/{project_id}/dynamic-editor")
 assert "data-add-section" in editor_page.text and "data-editor-preview" in editor_page.text
 

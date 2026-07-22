@@ -1,6 +1,6 @@
 ---
 name: manage-bid-projects
-description: Parse tender documents or user-provided bidding information, organize project-specific dynamic tabs and blocks, ask the user for explicit confirmation, and then create, update, follow up, change status, or archive projects through the Hejia bidding platform API. Use for 招标文件整理、投标项目登记、项目进度更新、动态字段同步、跟进记录和投后归档。
+description: Parse tender documents or user-provided bidding information, organize project-specific dynamic tabs and blocks, proactively check tender deadlines and ask for project progress, then create, update, follow up, change status, or archive projects through the Hejia bidding platform API after explicit confirmation. Use for 招标文件整理、投标项目登记、项目进度催办、定时巡检、动态字段同步、跟进记录和投后归档。
 ---
 
 # Manage Bid Projects
@@ -21,6 +21,19 @@ Require:
 - `BID_PLATFORM_API_TOKEN`
 
 Use `scripts/bid_platform.py`. It uses only the Python standard library and never prints the token.
+
+## Scheduled Progress Check
+
+When invoked by a scheduled Hermes task, inspect active projects before asking the user. The website does not initiate this task itself.
+
+- Run on every workday at 09:00. Run an additional check at 15:00 for deadlines due within three calendar days or already overdue.
+- List active projects, read each relevant project, and use the tender-derived dates and current project data to identify: signup, qualification-pre-review, document purchase, clarification, site visit, deposit, submission, bid opening, result, and deposit refund follow-up.
+- Ask about a deadline within seven days; treat three days or fewer, overdue deadlines, and an unreturned deposit more than 14 days after bid opening as urgent.
+- Ask only the most actionable question per project in one check. Do not repeat the same unanswered question more than once per workday; group routine questions into one concise message.
+- Do not ask about a completed or not-applicable item unless later tender information creates a new requirement.
+- Ask for the internal project owner when it is missing. Never treat the purchaser, tender agent, or external contact as the owner.
+- State the project name, deadline or reason, current recorded progress, and the exact information needed. Example: “XX 项目资格预审资料三天后截止，当前未确认是否提交。资料是否已提交？”
+- Treat every reply as information collection only. Summarize the proposed updates and request explicit confirmation before any API write.
 
 ## Workflow
 
@@ -93,7 +106,7 @@ python scripts/bid_platform.py followup <project-id> confirmed-followup.json --i
 
 ### Change status
 
-Use one current lifecycle stage for the homepage, chosen from: `pending_signup`, `registered`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, and `result_pending`. Preview the old and new status, confirm, then run:
+Use one current lifecycle stage for the homepage, chosen from: `pending_signup`, `registered`, `pending_prequalification`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, and `result_pending`. Preview the old and new status, confirm, then run:
 
 ```bash
 python scripts/bid_platform.py status <project-id> confirmed-status.json --idempotency-key hermes-<unique-id>

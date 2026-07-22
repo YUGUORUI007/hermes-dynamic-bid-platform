@@ -15,12 +15,18 @@ python scripts/bid_platform.py schema
   "owner": "负责人",
   "summary": "用于列表和详情页顶部的简短摘要",
   "schema_version": "1.0",
-  "content": {"sections": []},
+  "content": {"workflow": {"signup": "done", "deposit": "pending", "proposal": "in_progress"}, "sections": []},
   "change_summary": "本次变更摘要"
 }
 ```
 
-System lifecycle statuses currently used by the platform: `tracking`, `pending_signup`, `registered`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, `result_pending`, `won`, `lost`, `abandoned`, `partner_completed`, `archived`.
+System lifecycle statuses currently used by the platform: `tracking`, `pending_signup`, `registered`, `pending_prequalification`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, `result_pending`, `won`, `lost`, `abandoned`, `partner_completed`, `archived`.
+
+## Parallel workflow
+
+Use `content.workflow` for the editable, concurrent bid-work items shown on the project detail page and summarized on the homepage. Valid keys are `signup`, `prequalification`, `deposit`, `proposal`, `sealing`, `delivery`, `bid_open`, and `deposit_refund`; each value is one of `pending`, `in_progress`, `done`, or `not_applicable`. When `bid_datetime` is more than 14 days ago and `deposit_refund` is not `done` or `not_applicable`, the platform highlights the pending refund as overdue.
+
+Do not overwrite one completed item when updating another. For example, a project can have `deposit: "done"` and `proposal: "in_progress"` at the same time.
 
 ## Section
 

@@ -43,5 +43,36 @@
         }
       });
     });
+
+    document.querySelectorAll(".workflow-state-select").forEach((select) => {
+      select.addEventListener("change", async () => {
+        const previous = select.dataset.current || "pending";
+        const state = select.value;
+        select.disabled = true;
+        try {
+          const response = await fetch(`/api/projects/${encodeURIComponent(select.dataset.projectId)}/workflow/${encodeURIComponent(select.dataset.stage)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ state }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || !payload.ok) throw new Error(payload.detail || "流程状态更新失败，请稍后重试。");
+          select.dataset.current = payload.state;
+          const item = select.closest(".workflow-item");
+          if (item) {
+            item.className = `workflow-item ${payload.tone}`;
+            const label = item.querySelector("span");
+            if (label) label.textContent = payload.state_label;
+          }
+          showNotice(`${payload.state_label}已更新`);
+        } catch (error) {
+          select.value = previous;
+          showNotice(error instanceof Error ? error.message : "流程状态更新失败，请稍后重试。", true);
+        } finally {
+          select.disabled = false;
+        }
+      });
+    });
   });
 })();

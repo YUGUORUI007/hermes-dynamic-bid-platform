@@ -10,6 +10,7 @@
 - 随机生成且不入库的 `BID_PLATFORM_SECRET_KEY`
 - 唯一的强管理员密码 `BID_PLATFORM_ADMIN_PASSWORD`
 - `BID_PLATFORM_ENABLE_LEGACY_AI=0`
+- `BID_PLATFORM_AUTH_MODE=required`（默认；接入统一登录前的可信内网可临时设为 `open`）
 
 可使用 `python -c "import secrets; print(secrets.token_urlsafe(48))"` 生成密钥。生产环境变量文件权限应限制为服务账号可读。
 
@@ -21,7 +22,7 @@
 4. 运行 `python scripts/migrate_dynamic_projects.py` 做只读预检，确认失败数为 0。
 5. 运行正式迁移 `python scripts/migrate_dynamic_projects.py --apply`。
 6. 以 `uvicorn platform_server:app --host 127.0.0.1 --port 8010` 启动。
-7. 检查 `/healthz`、`/login` 和 `/docs`，再切换反向代理。
+7. 检查 `/healthz`、`/login` 和 `/docs`，再切换反向代理。内部只读模式还应检查未携带 Cookie 的 `/workspace/projects` 可直接打开。
 8. 在系统管理中创建专用 Hermes Token，并按最小权限分配 Scope。
 9. 通过 `BID_PLATFORM_ACCEPTANCE_USERNAME` 提供验收账号，再运行 `scripts/production_acceptance_check.py --base-url <URL>` 并在交互提示中输入密码。脚本会创建并清理临时用户、Token 和归档记录，审计日志按合规要求保留。
 
@@ -56,3 +57,7 @@ python scripts/migrate_dynamic_projects.py --apply
 - Token 仅哈希存储，可撤销、可过期、Scope 最小化
 - 写请求带确认信息、幂等键；内容更新带校验令牌和版本号
 - HTTPS、代理请求体限制、日志保留和备份恢复均已验证
+
+## 内部只读访问模式
+
+`BID_PLATFORM_AUTH_MODE=open` 仅用于可信公司内网、VPN 或已由主站网关限制访问的临时阶段。该模式让所有访问者直接浏览投标工作台，网页端不允许新增、编辑、状态修改或归档；成员管理、API Token 管理和系统密钥配置会被关闭。Hermes 仍需使用已有的最小权限 API Token 写入。不要将开放模式直接暴露到互联网。接入主域名导航、SSO 或人员权限后，将变量恢复为 `required` 并重启服务。

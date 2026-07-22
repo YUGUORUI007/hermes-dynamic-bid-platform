@@ -37,9 +37,19 @@ cd C:\项目记录表\bid_manager
 
 生产模式 `BID_PLATFORM_ENV=production` 下，缺少 `BID_PLATFORM_SECRET_KEY` 或 `BID_PLATFORM_ADMIN_PASSWORD` 时应用会拒绝启动。
 
+### 内部只读访问模式
+
+主导航和统一登录尚未接入时，可信内网部署可设置：
+
+```powershell
+$env:BID_PLATFORM_AUTH_MODE='open'
+```
+
+此模式下同事可直接浏览工作台、项目、日程和归档，但网页端不能新增、编辑、更新状态或归档项目。项目更新仅能由 Hermes 使用已创建的专用 API Token 完成；成员权限、Hermes Token 与系统密钥设置会被隐藏并拒绝访问。接入主站导航或统一登录后，将变量改回 `required`（默认值）即可恢复登录和角色权限。
+
 ## Hermes 接入
 
-1. 管理员登录网站，在“系统管理 -> Hermes 接口”创建最小权限 Token。
+1. 在 `BID_PLATFORM_AUTH_MODE=required` 时，管理员登录网站，在“系统管理 -> Hermes 接口”创建最小权限 Token。
 2. 为 Skill 设置 `BID_PLATFORM_API_URL=https://你的域名/api/v1`。
 3. 设置 `BID_PLATFORM_API_TOKEN`，Token 只在创建后显示一次。
 4. 将 `hermes-skill/manage-bid-projects` 安装到 Hermes。

@@ -19,8 +19,8 @@
   </div>
   {% endfor %}
   <div class="tab-pane" id="section-status">
-    <header class="pane-title"><div><h2>项目状态</h2><p>当前所处投标流程及后续节点。</p></div>{% if can_edit_projects(current_user) %}<select class="status-select {{ dynamic_project.status_tone }}" data-project-id="{{ dynamic_project.id }}" data-current="{{ dynamic_project.status }}" aria-label="{{ dynamic_project.title }} 的项目状态">{% for value,label in status_labels.items() %}<option value="{{ value }}" data-tone="{{ status_tones.get(value, 'neutral') }}" {% if dynamic_project.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% else %}<em class="status {{ dynamic_project.status_tone }}">{{ dynamic_project.status_label }}</em>{% endif %}</header>
-    <ol class="status-flow">{% for value in project_status_flow %}<li class="{% if value == dynamic_project.status %}current{% elif dynamic_project.status in project_status_flow and project_status_flow.index(value) < project_status_flow.index(dynamic_project.status) %}done{% endif %}"><span>{{ loop.index }}</span><strong>{{ status_labels[value] }}</strong></li>{% endfor %}</ol>
+    <header class="pane-title"><div><h2>项目状态</h2><p>各项投标工作可并行维护，首页同步展示。</p></div></header>
+    <div class="workflow-grid">{% for workflow in dynamic_project.workflow_items %}<article class="workflow-item {{ workflow.tone }}"><div><strong>{{ workflow.label }}</strong><span>{{ workflow.state_label }}</span></div>{% if can_edit_projects(current_user) %}<select class="workflow-state-select" data-project-id="{{ dynamic_project.id }}" data-stage="{{ workflow.id }}" data-current="{{ workflow.state }}" aria-label="{{ workflow.label }}状态"><option value="pending" {% if workflow.state == 'pending' %}selected{% endif %}>待完成</option><option value="in_progress" {% if workflow.state == 'in_progress' %}selected{% endif %}>进行中</option><option value="done" {% if workflow.state == 'done' %}selected{% endif %}>已完成</option><option value="not_applicable" {% if workflow.state == 'not_applicable' %}selected{% endif %}>不适用</option></select>{% endif %}</article>{% endfor %}</div>
   </div>
 </section>
 {% endblock %}

@@ -10,7 +10,7 @@
   <select name="owner"><option value="">全部负责人</option>{% for owner in workspace.owners %}<option value="{{ owner }}" {% if workspace.filters.owner == owner %}selected{% endif %}>{{ owner }}</option>{% endfor %}</select>
   <button class="secondary-btn" type="submit"><i data-lucide="sliders-horizontal"></i>筛选</button>
 </form>
-<section class="project-surface"><div class="project-table-head"><span>项目</span><span>状态</span><span>负责人</span><span class="desktop-column">最近更新</span><span></span></div>{% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}</section>
+<section class="project-surface"><div class="project-table-head"><span>项目</span><span>投标进度</span><span>负责人</span><span class="desktop-column">最近更新</span><span></span></div>{% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}</section>
 
 {% if can_edit_projects(current_user) %}
 <dialog class="app-dialog" id="manual-create">
