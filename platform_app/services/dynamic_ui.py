@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import calendar as calendar_module
+import math
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -141,16 +142,45 @@ def build_legacy_content(project: Project) -> dict[str, Any]:
     return {"sections": sections}
 
 
-def project_next_deadline(project: Project, now: datetime | None = None) -> tuple[str, datetime] | None:
+DEADLINE_FIELDS = (
+    ("signup_deadline", "报名截止"),
+    ("document_sale_deadline", "文件购买截止"),
+    ("clarification_deadline", "疑问澄清截止"),
+    ("site_visit_time", "现场踏勘"),
+    ("deposit_deadline", "保证金截止"),
+    ("submission_datetime", "投标递交截止"),
+    ("bid_datetime", "开标时间"),
+)
+
+
+def project_deadline_entries(project: Project, now: datetime | None = None, *, within_days: int | None = None) -> list[dict[str, Any]]:
     now = now or datetime.now()
-    candidates = [
-        ("报名截止", project.signup_deadline),
-        ("保证金截止", project.deposit_deadline),
-        ("投标文件递交", project.submission_datetime),
-        ("开标时间", project.bid_datetime),
-    ]
-    future = [(label, value) for label, value in candidates if value and value >= now]
-    return min(future, key=lambda item: item[1]) if future else None
+    cutoff = now + timedelta(days=within_days) if within_days is not None else None
+    entries = []
+    for field_name, label in DEADLINE_FIELDS:
+        deadline_at = getattr(project, field_name, None)
+        if deadline_at is None or deadline_at < now or (cutoff and deadline_at > cutoff):
+            continue
+        seconds_left = max(0, (deadline_at - now).total_seconds())
+        days_left = math.ceil(seconds_left / 86400)
+        entries.append(
+            {
+                "label": label,
+                "deadline_at": deadline_at,
+                "project_id": project.id,
+                "project_title": project.name,
+                "days_left": days_left,
+                "tone": "danger" if seconds_left <= 3 * 86400 else "warning",
+            }
+        )
+    return sorted(entries, key=lambda item: item["deadline_at"])
+
+
+def project_next_deadline(project: Project, now: datetime | None = None) -> tuple[str, datetime] | None:
+    entries = project_deadline_entries(project, now)
+    if not entries:
+        return None
+    return entries[0]["label"], entries[0]["deadline_at"]
 
 
 def summary_blocks(content: dict[str, Any], limit: int = 4) -> list[dict[str, Any]]:
@@ -203,7 +233,7 @@ def build_workspace_data(session, *, keyword: str = "", status: str = "", owner:
         query = query.filter(Project.owner_name == owner)
     projects = query.order_by(Project.updated_at.desc()).all()
     cards = [serialize_project_card(project, now) for project in projects]
-    upcoming = [card for card in cards if card["deadline_at"] and card["deadline_at"] <= now + timedelta(days=7)]
+    upcoming = [entry for project in projects for entry in project_deadline_entries(project, now, within_days=7)]
     upcoming.sort(key=lambda item: item["deadline_at"])
     owners = sorted({project.owner_name for project in projects if project.owner_name})
     return {
@@ -213,7 +243,7 @@ def build_workspace_data(session, *, keyword: str = "", status: str = "", owner:
         "metrics": {
             "active": len(cards),
             "due_seven_days": len(upcoming),
-            "urgent": sum(1 for card in upcoming if card["deadline_at"] <= now + timedelta(days=2)),
+            "urgent": sum(1 for entry in upcoming if entry["tone"] == "danger"),
             "pending_result": sum(1 for card in cards if card["status"] == "result_pending"),
         },
         "filters": {"keyword": keyword, "status": status, "owner": owner},
