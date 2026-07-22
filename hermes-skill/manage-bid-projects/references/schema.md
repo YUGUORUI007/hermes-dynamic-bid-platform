@@ -105,6 +105,8 @@ Every row must contain exactly as many cells as `columns`.
 }
 ```
 
+Timeline entries with a valid `at` value automatically appear in the website calendar and deadline summaries. Use `YYYY-MM-DD HH:MM` whenever a specific time is known; omit uncertain dates instead of writing placeholder text such as “待定”.
+
 ### Checklist
 
 ```json

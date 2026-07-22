@@ -202,13 +202,50 @@ DEADLINE_FIELDS = (
 )
 
 
+def parse_calendar_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    normalized = value.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized).replace(tzinfo=None)
+    except ValueError:
+        for pattern in ("%Y-%m-%d %H:%M", "%Y-%m-%d", "%Y/%m/%d %H:%M", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(normalized, pattern)
+            except ValueError:
+                continue
+    return None
+
+
+def dynamic_timeline_entries(project: Project) -> list[dict[str, Any]]:
+    content = load_dynamic_content(project)
+    entries: list[dict[str, Any]] = []
+    for section in content.get("sections", []):
+        for block in section.get("blocks", []):
+            if block.get("type") != "timeline":
+                continue
+            for item in block.get("items", []):
+                if not isinstance(item, dict):
+                    continue
+                deadline_at = parse_calendar_datetime(item.get("at"))
+                label = item.get("label")
+                if deadline_at is None or not isinstance(label, str) or not label.strip():
+                    continue
+                entries.append({"label": label.strip(), "deadline_at": deadline_at})
+    return entries
+
+
 def project_deadline_entries(project: Project, now: datetime | None = None, *, within_days: int | None = None, include_past: bool = False) -> list[dict[str, Any]]:
     now = now or datetime.now()
     cutoff = now + timedelta(days=within_days) if within_days is not None else None
     entries = []
+    seen: set[tuple[str, datetime]] = set()
     for field_name, label in DEADLINE_FIELDS:
         deadline_at = getattr(project, field_name, None)
-        if deadline_at is None or (not include_past and deadline_at < now) or (cutoff and deadline_at > cutoff):
+        if deadline_at is None:
+            continue
+        seen.add((label, deadline_at))
+        if (not include_past and deadline_at < now) or (cutoff and deadline_at > cutoff):
             continue
         seconds_left = (deadline_at - now).total_seconds()
         days_left = max(0, math.ceil(seconds_left / 86400))
@@ -219,6 +256,22 @@ def project_deadline_entries(project: Project, now: datetime | None = None, *, w
                 "project_id": project.id,
                 "project_title": project.name,
                 "days_left": days_left,
+                "tone": "danger" if seconds_left <= 3 * 86400 else "warning",
+            }
+        )
+    for dynamic_entry in dynamic_timeline_entries(project):
+        label = dynamic_entry["label"]
+        deadline_at = dynamic_entry["deadline_at"]
+        if (label, deadline_at) in seen or (not include_past and deadline_at < now) or (cutoff and deadline_at > cutoff):
+            continue
+        seconds_left = (deadline_at - now).total_seconds()
+        entries.append(
+            {
+                "label": label,
+                "deadline_at": deadline_at,
+                "project_id": project.id,
+                "project_title": project.name,
+                "days_left": max(0, math.ceil(seconds_left / 86400)),
                 "tone": "danger" if seconds_left <= 3 * 86400 else "warning",
             }
         )

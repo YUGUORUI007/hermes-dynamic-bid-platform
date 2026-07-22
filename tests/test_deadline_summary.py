@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 import unittest
 
@@ -30,6 +31,39 @@ class DeadlineSummaryTests(unittest.TestCase):
         self.assertEqual(project_deadline_entries(project, now), [])
         entries = project_deadline_entries(project, now, include_past=True)
         self.assertEqual(entries[0]["label"], "报名截止")
+
+    def test_collects_calendar_entries_from_dynamic_timeline(self):
+        now = datetime(2026, 7, 22, 9, 0)
+        project = Project(
+            id=9,
+            name="动态时间线项目",
+            dynamic_content=json.dumps(
+                {
+                    "workflow": {},
+                    "sections": [
+                        {
+                            "id": "key-dates",
+                            "title": "关键节点",
+                            "blocks": [
+                                {
+                                    "id": "schedule",
+                                    "type": "timeline",
+                                    "items": [
+                                        {"label": "投标文件递交", "at": "2026-07-25 09:30"},
+                                        {"label": "无效日期", "at": "待定"},
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+        )
+
+        entries = project_deadline_entries(project, now, within_days=7)
+
+        self.assertEqual([(item["label"], item["deadline_at"]) for item in entries], [("投标文件递交", datetime(2026, 7, 25, 9, 30))])
 
     def test_highlights_overdue_deposit_refund_after_fourteen_days(self):
         now = datetime(2026, 7, 22, 9, 0)
