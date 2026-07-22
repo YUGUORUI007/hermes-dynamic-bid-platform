@@ -5,8 +5,10 @@
 <section class="project-hero">
   <div class="project-hero-top"><span class="project-avatar">{{ dynamic_project.owner[:1] }}</span><div class="project-heading"><h1>{{ dynamic_project.title }}</h1><p><em class="status {{ dynamic_project.status_tone }}">{{ dynamic_project.status_label }}</em><span>{{ dynamic_project.code }}</span><span>负责人：{{ dynamic_project.owner }}</span><span>版本 {{ dynamic_project.version }}</span></p></div><div class="project-actions"><button class="icon-btn" type="button" data-print-project aria-label="打印项目" title="打印项目"><i data-lucide="printer"></i></button>{% if can_edit_projects(current_user) %}<a class="secondary-btn" href="/projects/{{ dynamic_project.id }}/dynamic-editor"><i data-lucide="pencil"></i>编辑</a>{% endif %}</div></div>
   <p class="project-summary">{{ dynamic_project.summary }}</p>
+  <div class="project-proxy-meta"><span><i data-lucide="building-2"></i>代理机构：{{ dynamic_project.agency }}</span><span><i data-lucide="user-round"></i>联系人：{{ dynamic_project.contact_name }}</span><span><i data-lucide="phone"></i>电话：{{ dynamic_project.contact_phone }}</span></div>
   <nav class="detail-tabs" aria-label="项目内容标签">
     {% for section in dynamic_project.content.sections %}<button type="button" class="{% if loop.first %}active{% endif %}" data-tab="section-{{ loop.index0 }}"><i data-lucide="{{ section.icon or 'file-text' }}"></i>{{ section.title }}<small>{{ section.blocks|length }}</small></button>{% endfor %}
+    <button type="button" data-tab="section-status"><i data-lucide="git-branch"></i>项目状态</button>
   </nav>
 </section>
 <section class="detail-stage">
@@ -16,5 +18,9 @@
     {% if section.blocks %}<div class="dynamic-grid">{% for block in section.blocks %}{% include "_dynamic_block.html" %}{% endfor %}</div>{% else %}<div class="empty-state"><i data-lucide="file-plus-2"></i><strong>此标签暂无内容</strong><span>可由 Hermes 或动态编辑器补充。</span></div>{% endif %}
   </div>
   {% endfor %}
+  <div class="tab-pane" id="section-status">
+    <header class="pane-title"><div><h2>项目状态</h2><p>当前所处投标流程及后续节点。</p></div>{% if can_edit_projects(current_user) %}<select class="status-select {{ dynamic_project.status_tone }}" data-project-id="{{ dynamic_project.id }}" data-current="{{ dynamic_project.status }}" aria-label="{{ dynamic_project.title }} 的项目状态">{% for value,label in status_labels.items() %}<option value="{{ value }}" data-tone="{{ status_tones.get(value, 'neutral') }}" {% if dynamic_project.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% else %}<em class="status {{ dynamic_project.status_tone }}">{{ dynamic_project.status_label }}</em>{% endif %}</header>
+    <ol class="status-flow">{% for value in project_status_flow %}<li class="{% if value == dynamic_project.status %}current{% elif dynamic_project.status in project_status_flow and project_status_flow.index(value) < project_status_flow.index(dynamic_project.status) %}done{% endif %}"><span>{{ loop.index }}</span><strong>{{ status_labels[value] }}</strong></li>{% endfor %}</ol>
+  </div>
 </section>
 {% endblock %}

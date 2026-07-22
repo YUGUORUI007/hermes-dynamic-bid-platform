@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {
     "title": {"type": "string", "minLength": 1, "maxLength": 255},
-    "status": {"enum": ["tracking", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"]},
+    "status": {"enum": ["tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"]},
     "owner": {"type": "string", "maxLength": 128},
     "summary": {"type": "string", "maxLength": 4000},
     "schema_version": {"const": "1.0"},

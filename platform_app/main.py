@@ -79,6 +79,13 @@ jinja_env = Environment(
 
 STATUS_LABELS = {
     "tracking": "待跟进",
+    "pending_signup": "待报名",
+    "registered": "已报名",
+    "deposit_pending": "待缴保证金",
+    "deposit_done": "保证金已汇出",
+    "preparing": "待制作投标方案",
+    "sealed": "标书已制作并封标",
+    "ready_deliver": "待送标",
     "submitted": "已递交",
     "result_pending": "待结果",
     "won": "已中标",
@@ -88,8 +95,15 @@ STATUS_LABELS = {
     "archived": "已归档",
 }
 
-ACTIVE_PROJECT_STATUSES = {"tracking", "submitted", "result_pending"}
+ACTIVE_PROJECT_STATUSES = {"tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending"}
 TERMINAL_PROJECT_STATUSES = {"won", "lost", "abandoned", "partner_completed", "archived"}
+PROJECT_STATUS_FLOW = ("tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending")
+STATUS_TONES = {
+    "tracking": "warning", "pending_signup": "warning", "registered": "success", "deposit_pending": "warning",
+    "deposit_done": "info", "preparing": "warning", "sealed": "success", "ready_deliver": "danger",
+    "submitted": "info", "result_pending": "success", "won": "success", "lost": "danger",
+    "abandoned": "neutral", "partner_completed": "info", "archived": "neutral",
+}
 
 SETTINGS_LABELS = {
     "deepseek_api_key": "DeepSeek API Key",
@@ -461,8 +475,10 @@ def render_template(name: str, request: Request, **context: object) -> HTMLRespo
         current_user=user,
         app_section=app_section,
         status_labels=STATUS_LABELS,
+        status_tones=STATUS_TONES,
         active_project_statuses=ACTIVE_PROJECT_STATUSES,
         terminal_project_statuses=TERMINAL_PROJECT_STATUSES,
+        project_status_flow=PROJECT_STATUS_FLOW,
         settings_labels=SETTINGS_LABELS,
         role_labels=ROLE_LABELS,
         bid_mode_labels=BID_MODE_LABELS,
@@ -3110,6 +3126,32 @@ def create_app() -> FastAPI:
             project.updated_at = datetime.utcnow()
             add_audit_log(session, actor=db_user, action="update_project_status", entity_type="project", entity_id=project.id, project_name=project.name, detail=f"状态更新为：{status}")
         return RedirectResponse(f"/projects/{project_id}", status_code=302)
+
+    @app.patch("/api/projects/{project_id}/status")
+    async def update_project_status_api(project_id: int, request: Request):
+        user = get_current_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="请先登录。")
+        if not can_edit_projects(user):
+            raise HTTPException(status_code=403, detail="当前账号没有项目编辑权限。")
+        try:
+            body = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPException(status_code=400, detail="请求体必须是 JSON。")
+        if not isinstance(body, dict) or not isinstance(body.get("status"), str):
+            raise HTTPException(status_code=422, detail="status 必须是字符串。")
+        status = body["status"].strip()
+        if status not in STATUS_LABELS:
+            raise HTTPException(status_code=422, detail="不支持的项目状态。")
+        with session_scope() as session:
+            project = session.get(Project, project_id)
+            if project is None:
+                raise HTTPException(status_code=404, detail="项目不存在。")
+            project.status = status
+            project.updated_at = datetime.utcnow()
+            db_user = session.get(User, user.id)
+            add_audit_log(session, actor=db_user, action="update_project_status", entity_type="project", entity_id=project.id, project_name=project.name, detail=f"状态更新为：{status}")
+        return JSONResponse({"ok": True, "status": status, "status_label": STATUS_LABELS[status]})
 
     @app.get("/reviews/{job_id}", response_class=HTMLResponse)
     def review_detail(job_id: int, request: Request):

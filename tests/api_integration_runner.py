@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sys
 import tempfile
 from pathlib import Path
@@ -12,16 +13,20 @@ root = Path(tempfile.mkdtemp(prefix="bid-api-test-"))
 os.environ["BID_PLATFORM_DATABASE_URL"] = f"sqlite:///{(root / 'test.db').as_posix()}"
 os.environ["BID_PLATFORM_INSTANCE_DIR"] = str(root / "instance")
 os.environ["BID_PLATFORM_STORAGE_DIR"] = str(root / "storage")
-os.environ["BID_PLATFORM_SECRET_KEY"] = "integration-test-secret"
-os.environ["BID_PLATFORM_ADMIN_PASSWORD"] = "integration-test-password"
+TEST_SECRET_KEY = secrets.token_urlsafe(32)
+TEST_ADMIN_PASSWORD = secrets.token_urlsafe(24)
+os.environ["BID_PLATFORM_SECRET_KEY"] = TEST_SECRET_KEY
+os.environ["BID_PLATFORM_ADMIN_PASSWORD"] = TEST_ADMIN_PASSWORD
 os.environ["BID_PLATFORM_PUBLIC_BASE_URL"] = "https://bid.example.test"
 
 from fastapi.testclient import TestClient
 
 from platform_app.api_v1 import create_api_token
+from platform_app.auth import hash_password
 from platform_app.database import session_scope
+from platform_app.dynamic_schema import validate_project_payload
 from platform_app.main import create_app
-from platform_app.models import ApiToken
+from platform_app.models import ApiToken, AuditLog, Project, User
 
 
 app = create_app()
@@ -85,6 +90,8 @@ payload = {
 schema_response = client.get("/api/v1/schema/project", headers=headers)
 assert schema_response.status_code == 200, schema_response.text
 assert "table" in schema_response.json()["block_types"]
+for workflow_status in ("pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver"):
+    assert validate_project_payload({**payload, "status": workflow_status})["status"] == workflow_status
 openapi = client.get("/openapi.json").json()
 for path, method in (("/api/v1/validate/project", "post"), ("/api/v1/projects", "post"), ("/api/v1/projects/{project_id}", "patch"), ("/api/v1/projects/{project_id}/followups", "post"), ("/api/v1/projects/{project_id}/status", "post"), ("/api/v1/projects/{project_id}/archive", "post")):
     assert "example" in openapi["paths"][path][method]["requestBody"]["content"]["application/json"], path
@@ -143,10 +150,38 @@ assert stale.json()["error"]["code"] == "version_conflict"
 
 login = client.post(
     "/login",
-    data={"username": "admin", "password": "integration-test-password"},
+    data={"username": "admin", "password": TEST_ADMIN_PASSWORD},
     follow_redirects=False,
 )
 assert login.status_code == 302, login.text
+
+anonymous_status_update = TestClient(app).patch(f"/api/projects/{project_id}/status", json={"status": "registered"})
+assert anonymous_status_update.status_code == 401, anonymous_status_update.text
+with session_scope() as session:
+    VIEWER_PASSWORD = secrets.token_urlsafe(24)
+    session.add(User(username="workflow-viewer", display_name="流程查看者", password_hash=hash_password(VIEWER_PASSWORD), role="viewer"))
+viewer_client = TestClient(app)
+viewer_login = viewer_client.post("/login", data={"username": "workflow-viewer", "password": VIEWER_PASSWORD}, follow_redirects=False)
+assert viewer_login.status_code == 302, viewer_login.text
+viewer_status_update = viewer_client.patch(f"/api/projects/{project_id}/status", json={"status": "registered"})
+assert viewer_status_update.status_code == 403, viewer_status_update.text
+invalid_web_status = client.patch(f"/api/projects/{project_id}/status", json={"status": "not-a-status"})
+assert invalid_web_status.status_code == 422, invalid_web_status.text
+with session_scope() as session:
+    project = session.get(Project, project_id)
+    project.agency = "测试代理机构"
+    project.contact_name = "王工"
+    project.contact_phone = "13800000000"
+web_status_update = client.patch(f"/api/projects/{project_id}/status", json={"status": "registered"})
+assert web_status_update.status_code == 200, web_status_update.text
+assert web_status_update.json() == {"ok": True, "status": "registered", "status_label": "已报名"}
+with session_scope() as session:
+    assert session.get(Project, project_id).status == "registered"
+    assert session.query(AuditLog).filter(AuditLog.entity_id == project_id, AuditLog.action == "update_project_status").count() >= 1
+editor_projects_page = client.get("/workspace/projects")
+assert 'class="status-select' in editor_projects_page.text
+viewer_projects_page = viewer_client.get("/workspace/projects")
+assert 'class="status-select' not in viewer_projects_page.text and '<em class="status' in viewer_projects_page.text
 
 token_create = client.post("/settings/api-tokens", data={"name": "Web test", "expires_in_days": "90", "projects_read": "1"}, follow_redirects=False)
 assert token_create.status_code in {302, 303}, f"{token_create.status_code} {token_create.headers} {token_create.text[:500]}"
@@ -174,6 +209,8 @@ for path, expected_text in page_checks.items():
 detail_page = client.get(f"/projects/{project_id}")
 assert "<script>alert('xss')</script>" not in detail_page.text
 assert "&lt;script&gt;alert" in detail_page.text
+assert "项目状态" in detail_page.text and "代理机构：测试代理机构" in detail_page.text
+assert 'class="status-select' in detail_page.text and "标书已制作并封标" in detail_page.text
 editor_page = client.get(f"/projects/{project_id}/dynamic-editor")
 assert "data-add-section" in editor_page.text and "data-editor-preview" in editor_page.text
 

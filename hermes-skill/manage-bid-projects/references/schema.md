@@ -20,7 +20,7 @@ python scripts/bid_platform.py schema
 }
 ```
 
-System lifecycle statuses currently used by the platform: `tracking`, `submitted`, `result_pending`, `won`, `lost`, `abandoned`, `partner_completed`, `archived`.
+System lifecycle statuses currently used by the platform: `tracking`, `pending_signup`, `registered`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, `result_pending`, `won`, `lost`, `abandoned`, `partner_completed`, `archived`.
 
 ## Section
 
@@ -119,4 +119,3 @@ Every row must contain exactly as many cells as `columns`.
 ```
 
 File URLs must be an HTTPS URL or a platform-relative path beginning with `/`.
-

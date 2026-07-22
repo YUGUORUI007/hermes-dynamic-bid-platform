@@ -1,13 +1,11 @@
 {% for item in projects %}
 <a class="project-row" href="/projects/{{ item.id }}">
   <span class="project-name"><strong>{{ item.title }}</strong><small>{{ item.code }} · {{ item.tab_count }} 个动态标签</small></span>
-  <span><em class="status {{ item.status_tone }}">{{ item.status_label }}</em></span>
+  <span class="status-cell">{% if can_edit_projects(current_user) %}<select class="status-select {{ item.status_tone }}" data-project-id="{{ item.id }}" data-current="{{ item.status }}" aria-label="{{ item.title }} 的项目状态">{% for value,label in status_labels.items() %}<option value="{{ value }}" data-tone="{{ workspace.status_tones.get(value, 'neutral') }}" {% if item.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% else %}<em class="status {{ item.status_tone }}">{{ item.status_label }}</em>{% endif %}</span>
   <span class="owner"><b class="mini-avatar">{{ item.owner[:1] }}</b>{{ item.owner }}</span>
-  <span class="muted desktop-column">{% if item.deadline_at %}{{ format_datetime(item.deadline_at) }}{% else %}暂无节点{% endif %}</span>
   <span class="muted desktop-column">{{ format_datetime(item.updated_at) or '-' }}</span>
   <span class="open-link">查看 <i data-lucide="arrow-up-right"></i></span>
 </a>
 {% else %}
 <div class="empty-state"><i data-lucide="folder-search"></i><strong>没有匹配的项目</strong><span>尝试调整筛选条件。</span></div>
 {% endfor %}
-

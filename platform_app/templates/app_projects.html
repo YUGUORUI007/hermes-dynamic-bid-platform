@@ -8,7 +8,7 @@
   <select name="owner"><option value="">全部负责人</option>{% for owner in workspace.owners %}<option value="{{ owner }}" {% if workspace.filters.owner == owner %}selected{% endif %}>{{ owner }}</option>{% endfor %}</select>
   <button class="secondary-btn" type="submit"><i data-lucide="sliders-horizontal"></i>筛选</button>
 </form>
-<section class="project-surface"><div class="project-table-head"><span>项目</span><span>状态</span><span>负责人</span><span class="desktop-column">下一节点</span><span class="desktop-column">最近更新</span><span></span></div>{% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}</section>
+<section class="project-surface"><div class="project-table-head"><span>项目</span><span>状态</span><span>负责人</span><span class="desktop-column">最近更新</span><span></span></div>{% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}</section>
 
 {% if can_edit_projects(current_user) %}
 <dialog class="app-dialog" id="manual-create">
@@ -19,7 +19,7 @@
       <label><span>项目名称</span><input name="name" required></label>
       <label><span>招标编号</span><input name="tender_code"></label>
       <label><span>负责人</span><input name="owner_name"></label>
-      <label><span>项目状态</span><select name="status"><option value="tracking">进行中</option><option value="submitted">已递交</option><option value="result_pending">待结果</option></select></label>
+      <label><span>项目状态</span><select name="status">{% for value in project_status_flow %}<option value="{{ value }}">{{ status_labels[value] }}</option>{% endfor %}</select></label>
       <input type="hidden" name="short_name"><input type="hidden" name="buyer"><input type="hidden" name="project_type"><input type="hidden" name="bid_mode" value="self"><input type="hidden" name="notes">
     </div>
     <footer><button class="secondary-btn" type="button" data-dialog-close>取消</button><button class="primary-btn" type="submit">创建项目</button></footer>
@@ -27,4 +27,3 @@
 </dialog>
 {% endif %}
 {% endblock %}
-

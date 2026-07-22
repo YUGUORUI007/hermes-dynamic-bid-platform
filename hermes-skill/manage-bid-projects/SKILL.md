@@ -32,22 +32,23 @@ Use `scripts/bid_platform.py`. It uses only the Python standard library and neve
    ```
 
 3. Build a payload following [references/schema.md](references/schema.md). Choose tabs from the actual material. Omit unsupported or unknown facts instead of guessing.
-4. Present a concise preview containing:
+4. For a new project, or when the existing project has no owner, ask who inside the company is responsible for advancing this bid. Do not use a tender-agency contact, purchaser contact, or an external project manager as `owner`.
+5. Present a concise preview containing:
    - target project or “new project”;
    - system fields being set;
    - tabs being added, replaced, or removed;
    - important dates and risks;
    - any uncertain information.
-5. Ask the user to confirm that exact preview. Stop before any write command.
-6. After explicit confirmation, save the intended payload to a temporary JSON file and validate it:
+6. Ask the user to confirm that exact preview. Stop before any write command.
+7. After explicit confirmation, save the intended payload to a temporary JSON file and validate it:
 
    ```bash
    python scripts/bid_platform.py validate payload.json
    ```
 
    For a partial update, use `validate --partial payload.json`.
-7. If validation returns duplicate candidates, tell the user and obtain a separate decision to create or update. Do not decide silently.
-8. Add the returned `validation_token` and a `confirmation` object to the same payload:
+8. If validation returns duplicate candidates, tell the user and obtain a separate decision to create or update. Do not decide silently.
+9. Add the returned `validation_token` and a `confirmation` object to the same payload:
 
    ```json
    {
@@ -59,8 +60,8 @@ Use `scripts/bid_platform.py`. It uses only the Python standard library and neve
    }
    ```
 
-9. Run the intended write command with a new stable idempotency key. Reuse that key only when retrying the exact same request.
-10. Report the project name, version, changed tabs, and returned project URL. On failure, report the API error code and follow its repair guidance; do not claim success.
+10. Run the intended write command with a new stable idempotency key. Reuse that key only when retrying the exact same request.
+11. Report the project name, internal owner, current status, changed tabs, and returned project URL. On failure, report the API error code and follow its repair guidance; do not claim success.
 
 ## Operations
 
@@ -92,7 +93,7 @@ python scripts/bid_platform.py followup <project-id> confirmed-followup.json --i
 
 ### Change status
 
-Preview the old and new status, confirm, then run:
+Use one current lifecycle stage for the homepage, chosen from: `pending_signup`, `registered`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, and `result_pending`. Preview the old and new status, confirm, then run:
 
 ```bash
 python scripts/bid_platform.py status <project-id> confirmed-status.json --idempotency-key hermes-<unique-id>
@@ -115,4 +116,3 @@ python scripts/bid_platform.py archive <project-id> confirmed-archive.json --ide
 - Use `priority: urgent` sparingly for real deadlines or disqualification risks.
 - Preserve useful existing tabs during partial updates unless the user explicitly approves replacement or removal.
 - Do not upload tender files through this skill. The website no longer performs AI/OCR analysis.
-

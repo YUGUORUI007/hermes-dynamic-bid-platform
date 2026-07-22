@@ -34,7 +34,7 @@ WIDTHS = {"full", "half", "third"}
 CALLOUT_TONES = {"info", "success", "warning", "danger"}
 STATUS_TONES = {"neutral", "info", "success", "warning", "danger"}
 FIELD_SEMANTICS = {"text", "date", "datetime", "amount", "phone", "email", "url"}
-PROJECT_STATUSES = {"tracking", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"}
+PROJECT_STATUSES = {"tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending", "won", "lost", "abandoned", "partner_completed", "archived"}
 SAFE_URL_SCHEMES = {"http", "https"}
 
 

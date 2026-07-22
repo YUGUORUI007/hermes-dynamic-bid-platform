@@ -92,6 +92,14 @@
         <strong>{{ project.agency or "-" }}</strong>
       </article>
       <article class="detail-card">
+        <span>代理联系人</span>
+        <strong>{{ project.contact_name or "-" }}</strong>
+      </article>
+      <article class="detail-card">
+        <span>代理电话</span>
+        <strong>{{ project.contact_phone or "-" }}</strong>
+      </article>
+      <article class="detail-card">
         <span>开标时间</span>
         <strong>{{ format_datetime(project.bid_datetime) or "-" }}</strong>
       </article>

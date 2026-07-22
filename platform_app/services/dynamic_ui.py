@@ -9,9 +9,16 @@ from ..dynamic_schema import SCHEMA_VERSION
 from ..models import ArchivedProject, Project
 
 
-ACTIVE_STATUSES = {"tracking", "submitted", "result_pending"}
+ACTIVE_STATUSES = {"tracking", "pending_signup", "registered", "deposit_pending", "deposit_done", "preparing", "sealed", "ready_deliver", "submitted", "result_pending"}
 STATUS_LABELS = {
     "tracking": "进行中",
+    "pending_signup": "待报名",
+    "registered": "已报名",
+    "deposit_pending": "待缴保证金",
+    "deposit_done": "保证金已汇出",
+    "preparing": "待制作投标方案",
+    "sealed": "标书已制作并封标",
+    "ready_deliver": "待送标",
     "submitted": "已递交",
     "result_pending": "待结果",
     "won": "已中标",
@@ -22,6 +29,13 @@ STATUS_LABELS = {
 }
 STATUS_TONES = {
     "tracking": "warning",
+    "pending_signup": "warning",
+    "registered": "success",
+    "deposit_pending": "warning",
+    "deposit_done": "info",
+    "preparing": "warning",
+    "sealed": "success",
+    "ready_deliver": "danger",
     "submitted": "info",
     "result_pending": "success",
     "won": "success",
@@ -171,6 +185,9 @@ def serialize_project_card(project: Project, now: datetime | None = None) -> dic
         "deadline_label": deadline[0] if deadline else "暂无近期节点",
         "deadline_at": deadline[1] if deadline else None,
         "content": content,
+        "agency": project.agency or "未登记",
+        "contact_name": project.contact_name or "未登记",
+        "contact_phone": project.contact_phone or "未登记",
     }
 
 
@@ -201,6 +218,7 @@ def build_workspace_data(session, *, keyword: str = "", status: str = "", owner:
         },
         "filters": {"keyword": keyword, "status": status, "owner": owner},
         "status_labels": STATUS_LABELS,
+        "status_tones": STATUS_TONES,
     }
 
 
