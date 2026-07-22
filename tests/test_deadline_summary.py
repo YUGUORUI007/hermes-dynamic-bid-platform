@@ -67,6 +67,20 @@ class DeadlineSummaryTests(unittest.TestCase):
 
         self.assertEqual([(item["label"], item["deadline_at"]) for item in entries], [("投标文件递交", datetime(2026, 7, 25, 9, 30))])
 
+    def test_hides_completed_signup_and_deposit_deadlines(self):
+        now = datetime(2026, 7, 22, 9, 0)
+        registered = Project(id=10, name="已报名项目", status="registered", signup_deadline=now + timedelta(days=1))
+        paid_deposit = Project(
+            id=11,
+            name="保证金已汇出项目",
+            status="tracking",
+            deposit_deadline=now + timedelta(days=1),
+            dynamic_content=json.dumps({"workflow": {"deposit": "done"}, "sections": []}, ensure_ascii=False),
+        )
+
+        self.assertEqual(project_deadline_entries(registered, now, within_days=7), [])
+        self.assertEqual(project_deadline_entries(paid_deposit, now, within_days=7), [])
+
     def test_highlights_overdue_deposit_refund_after_fourteen_days(self):
         now = datetime(2026, 7, 22, 9, 0)
         overdue = workflow_status_items({}, "submitted", now - timedelta(days=17), now)

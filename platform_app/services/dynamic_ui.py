@@ -200,6 +200,19 @@ DEADLINE_FIELDS = (
     ("submission_datetime", "投标递交截止"),
     ("bid_datetime", "开标时间"),
 )
+DEADLINE_FIELD_WORKFLOW_STAGES = {
+    "signup_deadline": "signup",
+    "deposit_deadline": "deposit",
+    "submission_datetime": "delivery",
+    "bid_datetime": "bid_open",
+}
+DEADLINE_LABEL_WORKFLOW_STAGES = {
+    "报名截止": "signup",
+    "保证金截止": "deposit",
+    "投标文件递交": "delivery",
+    "投标递交截止": "delivery",
+    "开标时间": "bid_open",
+}
 
 
 def parse_calendar_datetime(value: Any) -> datetime | None:
@@ -235,14 +248,26 @@ def dynamic_timeline_entries(project: Project) -> list[dict[str, Any]]:
     return entries
 
 
+def completed_deadline_workflow_stages(project: Project) -> set[str]:
+    content = load_dynamic_content(project)
+    return {
+        item["id"]
+        for item in workflow_status_items(content, project.status, project.bid_datetime)
+        if item["state"] in {"done", "not_applicable"}
+    }
+
+
 def project_deadline_entries(project: Project, now: datetime | None = None, *, within_days: int | None = None, include_past: bool = False) -> list[dict[str, Any]]:
     now = now or datetime.now()
     cutoff = now + timedelta(days=within_days) if within_days is not None else None
     entries = []
     seen: set[tuple[str, datetime]] = set()
+    completed_stages = completed_deadline_workflow_stages(project)
     for field_name, label in DEADLINE_FIELDS:
         deadline_at = getattr(project, field_name, None)
         if deadline_at is None:
+            continue
+        if DEADLINE_FIELD_WORKFLOW_STAGES.get(field_name) in completed_stages:
             continue
         seen.add((label, deadline_at))
         if (not include_past and deadline_at < now) or (cutoff and deadline_at > cutoff):
@@ -262,7 +287,12 @@ def project_deadline_entries(project: Project, now: datetime | None = None, *, w
     for dynamic_entry in dynamic_timeline_entries(project):
         label = dynamic_entry["label"]
         deadline_at = dynamic_entry["deadline_at"]
-        if (label, deadline_at) in seen or (not include_past and deadline_at < now) or (cutoff and deadline_at > cutoff):
+        if (
+            DEADLINE_LABEL_WORKFLOW_STAGES.get(label) in completed_stages
+            or (label, deadline_at) in seen
+            or (not include_past and deadline_at < now)
+            or (cutoff and deadline_at > cutoff)
+        ):
             continue
         seconds_left = (deadline_at - now).total_seconds()
         entries.append(
