@@ -31,6 +31,8 @@ Install this Skill as a GitHub-managed copy, not an untracked manual copy. Its i
 - Report the installed Skill version after an update. Do not automatically deploy website/server releases; tell the user that a server upgrade is available and wait for approval.
 - Before reporting an API token failure, run `python scripts/bid_platform.py health`. A network or TLS failure is not an invalid-token result.
 - If health succeeds but API calls return `401 invalid_token`, report the status and ask the user to check the service token configuration. Never print the token.
+- Prefer `python scripts/bid_platform.py doctor` before any update session. It reports whether the failure is network/TLS or authenticated API access, without writing project data.
+- If the public hostname is intercepted by a local proxy or TUN, use an SSH local forward to the platform's internal port and set `BID_PLATFORM_API_URL` to the resulting `http://127.0.0.1:<local-port>/api/v1`. Do not disable TLS validation and do not use `--insecure`.
 
 ## Scheduled Progress Check
 
@@ -64,15 +66,15 @@ When invoked by a scheduled Hermes task, inspect active projects before asking t
    - important dates and risks;
    - any uncertain information.
 6. Ask the user to confirm that exact preview. Stop before any write command.
-7. After explicit confirmation, save the intended payload to a temporary JSON file and validate it:
+7. After explicit confirmation, save the intended payload to a temporary JSON file. The payload must include the exact `confirmation` object:
 
    ```bash
-   python scripts/bid_platform.py validate payload.json
+   python scripts/bid_platform.py apply create payload.json --idempotency-key hermes-<unique-id>
    ```
 
-   For a partial update, use `validate --partial payload.json`.
-8. If validation returns duplicate candidates, tell the user and obtain a separate decision to create or update. Do not decide silently.
-9. Add the returned `validation_token` and a `confirmation` object to the same payload:
+   For an existing project, use the one-command update flow below. It reads the current version, obtains a fresh validation token, and writes only after both server checks pass.
+8. For a new project, search for duplicates before the apply step and obtain a separate decision to create or update. Do not decide silently.
+9. The `apply` command obtains the short-lived validation token itself; Hermes must never invent one. Keep the confirmation object in the payload:
 
    ```json
    {
@@ -84,7 +86,7 @@ When invoked by a scheduled Hermes task, inspect active projects before asking t
    }
    ```
 
-10. Run the intended write command with a new stable idempotency key. Reuse that key only when retrying the exact same request.
+10. Reuse an idempotency key only when retrying the exact same confirmed request.
 11. Report the project name, internal owner, current status, changed tabs, and returned project URL. On failure, report the API error code and follow its repair guidance; do not claim success.
 
 ## Operations
@@ -92,17 +94,15 @@ When invoked by a scheduled Hermes task, inspect active projects before asking t
 ### Create
 
 ```bash
-python scripts/bid_platform.py create confirmed-payload.json --idempotency-key hermes-<unique-id>
+python scripts/bid_platform.py apply create confirmed-payload.json --idempotency-key hermes-<unique-id>
 ```
 
 ### Update
 
-Read the project immediately before updating. Use its returned `version`:
+Use the safe one-command update flow. It reads the project immediately before writing and uses its returned version:
 
 ```bash
-python scripts/bid_platform.py get <project-id>
-python scripts/bid_platform.py validate --partial patch.json
-python scripts/bid_platform.py update <project-id> confirmed-patch.json --version <version> --idempotency-key hermes-<unique-id>
+python scripts/bid_platform.py apply update <project-id> confirmed-patch.json --idempotency-key hermes-<unique-id>
 ```
 
 If the API returns `version_conflict`, re-read the project, rebuild the preview, and ask the user to confirm again.

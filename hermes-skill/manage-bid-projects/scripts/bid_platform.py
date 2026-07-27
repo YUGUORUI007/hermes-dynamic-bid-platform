@@ -47,6 +47,44 @@ def read_json(path: str) -> dict:
     return value
 
 
+def require_confirmation(payload: dict) -> None:
+    confirmation = payload.get("confirmation")
+    if not isinstance(confirmation, dict) or not all(str(confirmation.get(key, "")).strip() for key in ("confirmed_by", "confirmed_at", "summary")):
+        raise SystemExit("Payload must include a complete confirmation object before it can be applied")
+
+
+def validated_payload(payload: dict, *, partial: bool) -> dict:
+    """Attach a fresh server validation token without weakening confirmation rules."""
+    require_confirmation(payload)
+    candidate = dict(payload)
+    candidate.pop("validation_token", None)
+    suffix = "?partial=true" if partial else ""
+    validation = request("POST", f"/validate/project{suffix}", payload=candidate)
+    token = validation.get("validation_token")
+    if not isinstance(token, str) or not token:
+        raise SystemExit("Platform validation did not return a validation token")
+    candidate["validation_token"] = token
+    return candidate
+
+
+def apply_create(payload: dict, *, idempotency_key: str) -> dict:
+    return request("POST", "/projects", payload=validated_payload(payload, partial=False), headers={"Idempotency-Key": idempotency_key})
+
+
+def apply_update(project_id: int, payload: dict, *, idempotency_key: str) -> dict:
+    current = request("GET", f"/projects/{project_id}")
+    version = current.get("version")
+    if not isinstance(version, int) or version < 1:
+        raise SystemExit("Platform returned an invalid project version; no update was sent")
+    body = validated_payload(payload, partial=True)
+    return request(
+        "PATCH",
+        f"/projects/{project_id}",
+        payload=body,
+        headers={"Idempotency-Key": idempotency_key, "If-Match": str(version)},
+    )
+
+
 def request(method: str, path: str, *, payload: dict | None = None, headers: dict[str, str] | None = None) -> dict:
     base_url, token = configuration()
     body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -79,6 +117,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Hermes client for the Hejia bidding platform")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("health")
+    sub.add_parser("doctor", help="Check health and authenticated API access without writing data")
     sub.add_parser("schema")
     projects = sub.add_parser("projects")
     projects.add_argument("--query", default="")
@@ -96,6 +135,15 @@ def main() -> None:
     update.add_argument("payload")
     update.add_argument("--version", type=int, required=True)
     update.add_argument("--idempotency-key", required=True)
+    apply = sub.add_parser("apply", help="Validate and apply an already confirmed payload in one safe command")
+    apply_sub = apply.add_subparsers(dest="apply_command", required=True)
+    apply_create_command = apply_sub.add_parser("create")
+    apply_create_command.add_argument("payload")
+    apply_create_command.add_argument("--idempotency-key", required=True)
+    apply_update_command = apply_sub.add_parser("update")
+    apply_update_command.add_argument("project_id", type=int)
+    apply_update_command.add_argument("payload")
+    apply_update_command.add_argument("--idempotency-key", required=True)
     for name in ("followup", "status", "archive"):
         command = sub.add_parser(name)
         command.add_argument("project_id", type=int)
@@ -108,6 +156,17 @@ def main() -> None:
         emit(result)
         if not result["ok"]:
             raise SystemExit(2)
+    elif args.command == "doctor":
+        health = health_check()
+        if not health["ok"]:
+            emit({"ok": False, "stage": "network_or_tls", "health": health})
+            raise SystemExit(2)
+        try:
+            schema = request("GET", "/schema/project")
+        except SystemExit:
+            emit({"ok": False, "stage": "api_authentication", "health": health})
+            raise
+        emit({"ok": True, "stage": "ready", "health": health, "schema_version": schema.get("schema_version")})
     elif args.command == "schema":
         emit(request("GET", "/schema/project"))
     elif args.command == "projects":
@@ -122,6 +181,12 @@ def main() -> None:
         emit(request("POST", "/projects", payload=read_json(args.payload), headers={"Idempotency-Key": args.idempotency_key}))
     elif args.command == "update":
         emit(request("PATCH", f"/projects/{args.project_id}", payload=read_json(args.payload), headers={"Idempotency-Key": args.idempotency_key, "If-Match": str(args.version)}))
+    elif args.command == "apply":
+        payload = read_json(args.payload)
+        if args.apply_command == "create":
+            emit(apply_create(payload, idempotency_key=args.idempotency_key))
+        else:
+            emit(apply_update(args.project_id, payload, idempotency_key=args.idempotency_key))
     else:
         emit(request("POST", f"/projects/{args.project_id}/{args.command}", payload=read_json(args.payload), headers={"Idempotency-Key": args.idempotency_key}))
 
