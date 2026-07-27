@@ -20,6 +20,23 @@ def configuration() -> tuple[str, str]:
     return base_url, token
 
 
+def health_check() -> dict:
+    api_url = os.getenv("BID_PLATFORM_API_URL", "").rstrip("/")
+    parsed = urllib.parse.urlsplit(api_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise SystemExit("BID_PLATFORM_API_URL must be an absolute HTTP(S) URL")
+    health_url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, "/healthz", "", ""))
+    request = urllib.request.Request(health_url, headers={"Accept": "application/json", "User-Agent": "Hermes-Bid-Skill"})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            return {"ok": response.status == 200, "url": health_url, "status": response.status, "response": payload}
+    except urllib.error.HTTPError as exc:
+        return {"ok": False, "url": health_url, "status": exc.code, "error": "http_error"}
+    except urllib.error.URLError as exc:
+        return {"ok": False, "url": health_url, "status": None, "error": "network_error", "detail": str(exc.reason)}
+
+
 def read_json(path: str) -> dict:
     try:
         value = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -61,6 +78,7 @@ def emit(value: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hermes client for the Hejia bidding platform")
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("health")
     sub.add_parser("schema")
     projects = sub.add_parser("projects")
     projects.add_argument("--query", default="")
@@ -85,7 +103,12 @@ def main() -> None:
         command.add_argument("--idempotency-key", required=True)
     args = parser.parse_args()
 
-    if args.command == "schema":
+    if args.command == "health":
+        result = health_check()
+        emit(result)
+        if not result["ok"]:
+            raise SystemExit(2)
+    elif args.command == "schema":
         emit(request("GET", "/schema/project"))
     elif args.command == "projects":
         query = urllib.parse.urlencode({"q": args.query, "status": args.status})

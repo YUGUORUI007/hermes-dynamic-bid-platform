@@ -22,6 +22,16 @@ Require:
 
 Use `scripts/bid_platform.py`. It uses only the Python standard library and never prints the token.
 
+## Skill Updates And Connection Checks
+
+Install this Skill as a GitHub-managed copy, not an untracked manual copy. Its installed version is in `VERSION`.
+
+- On every workday at 08:45, run `python scripts/sync_skill.py --check` from the installed Skill directory.
+- If a newer stable GitHub release is available, run `python scripts/sync_skill.py --apply` to update only the local Skill. The updater creates a timestamped backup and never reads or changes `BID_PLATFORM_API_TOKEN`.
+- Report the installed Skill version after an update. Do not automatically deploy website/server releases; tell the user that a server upgrade is available and wait for approval.
+- Before reporting an API token failure, run `python scripts/bid_platform.py health`. A network or TLS failure is not an invalid-token result.
+- If health succeeds but API calls return `401 invalid_token`, report the status and ask the user to check the service token configuration. Never print the token.
+
 ## Scheduled Progress Check
 
 When invoked by a scheduled Hermes task, inspect active projects before asking the user. The website does not initiate this task itself.

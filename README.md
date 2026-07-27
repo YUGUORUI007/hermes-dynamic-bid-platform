@@ -55,6 +55,17 @@ $env:BID_PLATFORM_AUTH_MODE='open'
 4. 将 `hermes-skill/manage-bid-projects` 安装到 Hermes。
 5. Hermes 先调用校验接口生成预览；用户明确确认后才提交带确认信息的写请求。
 
+### Hermes Skill 自动同步
+
+Skill 自带 `VERSION` 文件和 GitHub Release 同步工具，避免将本地复制副本长期遗忘。Hermes 可在已安装 Skill 目录执行：
+
+```bash
+python scripts/sync_skill.py --check
+python scripts/sync_skill.py --apply
+```
+
+`--apply` 只更新 Hermes 本地 Skill，会先创建时间戳备份，不会读取或修改 API Token，也不会升级服务器。建议 Hermes 每个工作日 08:45 检查 GitHub Release；服务器版本升级仍需单独确认。连接异常时先执行 `python scripts/bid_platform.py health`，只有健康检查成功且 API 返回 `401 invalid_token` 时才排查 Token。
+
 Skill 客户端示例：
 
 ```powershell
