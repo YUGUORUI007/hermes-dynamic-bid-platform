@@ -1,9 +1,9 @@
 {% for item in projects %}
 <a class="project-row-v3" href="/projects/{{ item.id }}">
-  <span class="project-row-v3-title"><strong>{{ item.title }}</strong><small>{{ item.agency }} · 负责人：{{ item.owner }}</small></span>
-  <span class="project-row-v3-states">{% for workflow in item.workflow_items[:3] %}<em class="status {{ workflow.tone }}">{{ workflow.state_label }}</em>{% endfor %}{% if item.workflow_items|length > 3 %}<i>+{{ item.workflow_items|length - 3 }}</i>{% endif %}</span>
-  <span class="project-row-v3-time">{{ format_datetime(item.bid_datetime) or '待补充' }}</span>
-  <span class="project-row-v3-action"><strong>{% if item.next_action %}{{ item.next_action.label.replace(item.title + ' · ', '') }}{% else %}补充关键节点{% endif %}</strong><small>查看详情 <i data-lucide="arrow-up-right"></i></small></span>
+  <span class="project-row-v3-title"><strong>{{ item.title }}</strong><small>{{ item.code }}</small></span>
+  <span class="project-row-v3-states"><em class="status {{ item.status_tone }}">{{ item.status_label }}</em></span>
+  <span class="project-row-v3-owner"><b class="mini-avatar">{{ item.owner[:1] }}</b>{{ item.owner }}</span>
+  <span class="project-row-v3-action"><strong>{{ item.deadline_label }}</strong><small>{{ format_datetime(item.deadline_at) or '待补充' }} <i data-lucide="arrow-up-right"></i></small></span>
 </a>
 {% else %}
 <div class="empty-state"><i data-lucide="folder-search"></i><strong>没有匹配的项目</strong><span>尝试调整筛选条件。</span></div>
