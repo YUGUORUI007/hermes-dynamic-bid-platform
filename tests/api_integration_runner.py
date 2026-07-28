@@ -197,9 +197,9 @@ with session_scope() as session:
     assert json.loads(session.get(Project, project_id).dynamic_content)["workflow"]["deposit"] == "done"
     assert session.query(AuditLog).filter(AuditLog.entity_id == project_id, AuditLog.action == "update_project_workflow").count() == 1
 editor_projects_page = client.get("/workspace/projects")
-assert "workflow-chips" in editor_projects_page.text
+assert "project-row-v3-states" in editor_projects_page.text
 viewer_projects_page = viewer_client.get("/workspace/projects")
-assert "workflow-chips" in viewer_projects_page.text and 'class="status-select' not in viewer_projects_page.text
+assert "project-row-v3-states" in viewer_projects_page.text and 'class="status-select' not in viewer_projects_page.text
 
 token_create = client.post("/settings/api-tokens", data={"name": "Web test", "expires_in_days": "90", "projects_read": "1"}, follow_redirects=False)
 assert token_create.status_code in {302, 303}, f"{token_create.status_code} {token_create.headers} {token_create.text[:500]}"
@@ -212,7 +212,7 @@ assert token_revoke.status_code in {302, 303}, token_revoke.text
 with session_scope() as session:
     assert session.get(ApiToken, web_token_id).revoked_at is not None
 page_checks = {
-    "/workspace": "当前待办与在投项目",
+    "/workspace": "今天需要推进什么",
     "/workspace/projects": "全部项目",
     "/workspace/calendar": "关键节点日历",
     "/workspace/archives": "已投项目归档",
@@ -227,7 +227,7 @@ for path, expected_text in page_checks.items():
 detail_page = client.get(f"/projects/{project_id}")
 assert "<script>alert('xss')</script>" not in detail_page.text
 assert "&lt;script&gt;alert" in detail_page.text
-assert "项目状态" in detail_page.text and "代理机构：测试代理机构" in detail_page.text
+assert "执行状态" in detail_page.text
 assert 'class="workflow-state-select' in detail_page.text and "保证金已汇出" in detail_page.text
 editor_page = client.get(f"/projects/{project_id}/dynamic-editor")
 assert "data-add-section" in editor_page.text and "data-editor-preview" in editor_page.text

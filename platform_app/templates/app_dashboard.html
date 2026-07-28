@@ -1,25 +1,29 @@
 {% extends "base.html" %}
 {% block title %}项目总览 - 合家投标{% endblock %}
 {% block content %}
-<header class="page-title">
-  <div><span class="eyebrow">项目总览</span><h1>当前待办与在投项目</h1><p>按开标时间排列，先处理需要确认和即将到期的事项。</p></div>
-  {% if can_edit_projects(current_user) %}<a class="primary-btn" href="{{ workspace_projects_path }}#manual-create"><i data-lucide="plus"></i>新建项目</a>{% endif %}
-</header>
+<div class="overview-v3">
+  <header class="overview-v3-head">
+    <div><span class="eyebrow">项目总览</span><h1>今天需要推进什么</h1><p>把临期节点、待确认结果和保证金退还放在同一个工作队列里。</p></div>
+    <a class="secondary-btn" href="/workspace/calendar"><i data-lucide="calendar-days"></i>日程视图</a>
+  </header>
 
-<section class="attention-panel" aria-labelledby="attention-title">
-  <div class="section-row compact"><div><h2 id="attention-title">待处理事项</h2><p>点击事项查看对应项目与关键节点</p></div><a class="secondary-btn" href="/workspace/calendar"><i data-lucide="calendar-days"></i>查看日程</a></div>
-  <div class="attention-list">
-  {% for item in workspace.attention[:6] %}
-    <a class="attention-item {{ item.tone }}" href="/projects/{{ item.project_id }}"><i data-lucide="{% if item.kind == 'refund' %}banknote-arrow-down{% elif item.kind == 'confirmation' %}circle-help{% else %}calendar-clock{% endif %}"></i><span><strong>{{ item.label }}</strong><small>{% if item.kind == 'confirmation' %}需要确认后才能更新状态{% else %}查看项目详情{% endif %}</small></span><i data-lucide="arrow-up-right"></i></a>
-  {% else %}
-    <div class="empty-inline">当前没有需要处理的事项。</div>
-  {% endfor %}
+  <div class="overview-v3-board">
+    <section class="task-queue-v3" aria-labelledby="task-queue-title">
+      <header><div><span>工作队列</span><h2 id="task-queue-title">待处理事项</h2></div><small>按紧急程度与时间排序</small></header>
+      <div class="task-queue-v3-list">
+      {% for item in workspace.attention[:6] %}
+        <a class="task-row-v3 {{ item.tone }}" href="/projects/{{ item.project_id }}"><span class="task-row-v3-mark"><i data-lucide="{% if item.kind == 'refund' %}banknote-arrow-down{% elif item.kind == 'confirmation' %}circle-help{% else %}calendar-clock{% endif %}"></i></span><span><strong>{{ item.label }}</strong><small>{% if item.kind == 'confirmation' %}需要你的确认，Hermes 才能更新项目{% else %}打开项目查看节点与状态{% endif %}</small></span><i data-lucide="chevron-right"></i></a>
+      {% else %}
+        <div class="task-queue-v3-empty"><i data-lucide="circle-check"></i><strong>当前没有待处理事项</strong><span>近期节点和待确认结果会出现在这里。</span></div>
+      {% endfor %}
+      </div>
+    </section>
+    <aside class="week-plan-v3" aria-labelledby="week-plan-title"><header><span>本周节点</span><h2 id="week-plan-title">时间安排</h2></header><div class="week-plan-v3-list">{% for item in workspace.upcoming[:5] %}<a href="/projects/{{ item.project_id }}"><time>{{ item.deadline_at.strftime('%m-%d') }}<small>{{ item.deadline_at.strftime('%H:%M') }}</small></time><span><strong>{{ item.label }}</strong><small>{{ item.project_title }}</small></span></a>{% else %}<p>本周暂无已登记的关键节点。</p>{% endfor %}</div><a class="week-plan-v3-link" href="/workspace/calendar">打开完整日程 <i data-lucide="arrow-up-right"></i></a></aside>
   </div>
-</section>
 
-<div class="section-row"><div><h2>进行中的项目</h2><p>{{ workspace.projects|length }} 个项目，按开标时间排序</p></div><a class="text-link" href="{{ workspace_projects_path }}">筛选项目 <i data-lucide="sliders-horizontal"></i></a></div>
-<section class="project-surface">
-  <div class="project-table-head overview-table-head"><span>项目</span><span>当前执行状态</span><span>负责人</span><span>开标时间</span><span>当前待办</span><span></span></div>
-  {% with projects=workspace.projects[:8] %}{% include "_project_rows.html" %}{% endwith %}
-</section>
+  <section class="active-projects-v3" aria-labelledby="active-projects-title">
+    <header><div><span>项目清单</span><h2 id="active-projects-title">进行中的项目</h2><p>{{ workspace.projects|length }} 个项目，按开标时间排序</p></div><a class="text-link" href="{{ workspace_projects_path }}">筛选与搜索 <i data-lucide="sliders-horizontal"></i></a></header>
+    <div class="project-table-v3"><div class="project-table-v3-head"><span>项目</span><span>当前状态</span><span>开标时间</span><span>当前待办</span></div>{% with projects=workspace.projects[:8] %}{% include "_project_rows.html" %}{% endwith %}</div>
+  </section>
+</div>
 {% endblock %}
