@@ -315,6 +315,55 @@ def project_next_deadline(project: Project, now: datetime | None = None) -> tupl
     return entries[0]["label"], entries[0]["deadline_at"]
 
 
+def project_attention_items(project: Project, now: datetime | None = None) -> list[dict[str, Any]]:
+    """Return actionable dashboard items, including post-bid confirmation work."""
+    now = now or datetime.now()
+    content = load_dynamic_content(project)
+    workflow = {item["id"]: item for item in workflow_status_items(content, project.status, project.bid_datetime, now)}
+    items: list[dict[str, Any]] = []
+    for entry in project_deadline_entries(project, now, within_days=7):
+        items.append({
+            "project_id": project.id,
+            "project_title": project.name,
+            "label": f"{project.name} · {entry['label']}：{entry['deadline_at'].strftime('%Y-%m-%d %H:%M')}",
+            "deadline_at": entry["deadline_at"],
+            "tone": entry["tone"],
+            "kind": "deadline",
+        })
+    delivery = workflow.get("delivery", {})
+    bid_open = workflow.get("bid_open", {})
+    if project.submission_datetime and project.submission_datetime < now and delivery.get("state") not in {"done", "not_applicable"}:
+        items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 投标文件递交时间已过，请确认是否已递交或放弃", "deadline_at": project.submission_datetime, "tone": "danger", "kind": "confirmation"})
+    elif project.bid_datetime and project.bid_datetime < now and project.status not in {"won", "lost", "abandoned", "partner_completed"}:
+        question = "请确认是否已开标" if bid_open.get("state") not in {"done", "not_applicable"} else "请确认中标结果"
+        items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 开标时间已过，{question}", "deadline_at": project.bid_datetime, "tone": "danger", "kind": "confirmation"})
+    refund = workflow.get("deposit_refund", {})
+    if refund.get("refund_overdue_days", 0):
+        items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 投标保证金待退还已超 {refund['refund_overdue_days']} 天", "deadline_at": project.bid_datetime or now, "tone": "danger", "kind": "refund"})
+    return items
+
+
+def canonical_key_node_section(project: Project) -> dict[str, Any] | None:
+    entries = project_deadline_entries(project, include_past=True)
+    if not entries:
+        return None
+    return {
+        "id": "system-key-nodes",
+        "title": "关键节点",
+        "description": "项目日期与 Hermes 项目专属节点统一汇总",
+        "icon": "calendar-range",
+        "priority": "important",
+        "visibility": "detail",
+        "collapsible": False,
+        "blocks": [{
+            "id": "system-key-node-timeline",
+            "type": "timeline",
+            "width": "full",
+            "items": [{"label": entry["label"], "at": entry["deadline_at"].strftime("%Y-%m-%d %H:%M"), "status": "已过期" if entry["deadline_at"] < datetime.now() else "待处理", "tone": entry["tone"]} for entry in entries],
+        }],
+    }
+
+
 def summary_blocks(content: dict[str, Any], limit: int = 4) -> list[dict[str, Any]]:
     blocks: list[dict[str, Any]] = []
     sections = content.get("sections", [])
@@ -346,6 +395,8 @@ def serialize_project_card(project: Project, now: datetime | None = None) -> dic
         "summary_blocks": summary_blocks(content),
         "deadline_label": deadline[0] if deadline else "暂无近期节点",
         "deadline_at": deadline[1] if deadline else None,
+        "bid_datetime": project.bid_datetime,
+        "next_action": project_attention_items(project, now)[0] if project_attention_items(project, now) else None,
         "content": content,
         "workflow_items": workflow_status_items(content, project.status, project.bid_datetime),
         "agency": project.agency or "未登记",
@@ -364,14 +415,18 @@ def build_workspace_data(session, *, keyword: str = "", status: str = "", owner:
         query = query.filter(Project.status == status)
     if owner:
         query = query.filter(Project.owner_name == owner)
-    projects = query.order_by(Project.updated_at.desc()).all()
+    projects = query.all()
+    projects.sort(key=lambda project: (project.bid_datetime is None, project.bid_datetime or datetime.max, project.updated_at), reverse=False)
     cards = [serialize_project_card(project, now) for project in projects]
     upcoming = [entry for project in projects for entry in project_deadline_entries(project, now, within_days=7)]
     upcoming.sort(key=lambda item: item["deadline_at"])
+    attention = [item for project in projects for item in project_attention_items(project, now)]
+    attention.sort(key=lambda item: (item["tone"] != "danger", item["deadline_at"]))
     owners = sorted({project.owner_name for project in projects if project.owner_name})
     return {
         "projects": cards,
         "upcoming": upcoming[:6],
+        "attention": attention[:12],
         "owners": owners,
         "metrics": {
             "active": len(cards),
@@ -444,4 +499,11 @@ def build_archive_data(session, keyword: str = "", status: str = "") -> dict[str
 
 def serialize_project_detail(project: Project) -> dict[str, Any]:
     card = serialize_project_card(project)
-    return {**card, "schema_version": project.schema_version or SCHEMA_VERSION}
+    content = dict(card["content"])
+    sections = [section for section in content.get("sections", []) if str(section.get("title", "")).strip() not in {"关键节点", "项目关键节点"}]
+    canonical_section = canonical_key_node_section(project)
+    if canonical_section:
+        insert_at = 1 if sections else 0
+        sections.insert(insert_at, canonical_section)
+    content["sections"] = sections
+    return {**card, "content": content, "schema_version": project.schema_version or SCHEMA_VERSION}

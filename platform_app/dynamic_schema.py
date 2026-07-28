@@ -38,6 +38,17 @@ PROJECT_STATUSES = {"tracking", "pending_signup", "registered", "pending_prequal
 WORKFLOW_STAGES = {"signup", "prequalification", "deposit", "proposal", "sealing", "delivery", "bid_open", "deposit_refund"}
 WORKFLOW_STATE_VALUES = {"pending", "in_progress", "done", "not_applicable"}
 SAFE_URL_SCHEMES = {"http", "https"}
+PROJECT_METADATA_FIELDS = {
+    "tender_code": 128,
+    "buyer": 255,
+    "agency": 255,
+    "contact_name": 255,
+    "contact_phone": 128,
+    "signup_deadline": 64,
+    "deposit_deadline": 64,
+    "submission_datetime": 64,
+    "bid_datetime": 64,
+}
 
 
 class SchemaValidationError(ValueError):
@@ -58,7 +69,7 @@ def project_schema_document() -> dict[str, Any]:
         },
         "project": {
             "required": ["title", "status", "content"],
-            "system_fields": ["title", "status", "owner", "summary", "schema_version"],
+            "system_fields": ["title", "status", "owner", "summary", "schema_version", *sorted(PROJECT_METADATA_FIELDS)],
             "content_shape": {"sections": "array<section>"},
         },
         "section": {
@@ -93,7 +104,7 @@ def validate_project_payload(payload: Any, *, partial: bool = False) -> dict[str
     normalized: dict[str, Any] = {}
     reject_unknown_keys(
         payload,
-        {"title", "status", "owner", "summary", "schema_version", "content", "change_summary", "confirmation", "validation_token"},
+        {"title", "status", "owner", "summary", "schema_version", "content", "change_summary", "confirmation", "validation_token", *PROJECT_METADATA_FIELDS},
         "$",
         errors,
     )
@@ -110,6 +121,9 @@ def validate_project_payload(payload: Any, *, partial: bool = False) -> dict[str
         normalized["owner"] = clean_string(payload.get("owner"), "$.owner", errors, max_length=128)
     if "summary" in payload:
         normalized["summary"] = clean_string(payload.get("summary"), "$.summary", errors, max_length=4_000)
+    for name, max_length in PROJECT_METADATA_FIELDS.items():
+        if name in payload:
+            normalized[name] = clean_string(payload.get(name), f"$.{name}", errors, max_length=max_length)
 
     version = payload.get("schema_version", SCHEMA_VERSION)
     if version != SCHEMA_VERSION:
@@ -406,8 +420,9 @@ def reject_unknown_keys(value: dict[str, Any], allowed: set[str], path: str, err
 
 
 def merge_project_payload(current: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
-    merged = {key: deepcopy(current[key]) for key in ("title", "status", "owner", "summary", "schema_version", "content") if key in current}
-    for key in ("title", "status", "owner", "summary", "schema_version", "content", "change_summary", "confirmation", "validation_token"):
+    core_fields = ("title", "status", "owner", "summary", "schema_version", "content", *PROJECT_METADATA_FIELDS)
+    merged = {key: deepcopy(current[key]) for key in core_fields if key in current}
+    for key in (*core_fields, "change_summary", "confirmation", "validation_token"):
         if key in patch:
             merged[key] = deepcopy(patch[key])
     return merged

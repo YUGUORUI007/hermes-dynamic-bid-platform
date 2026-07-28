@@ -17,8 +17,7 @@
         <span><strong>合家投标</strong><small>PROJECT DESK</small></span>
       </a>
       <nav class="main-nav" aria-label="主导航">
-        <a href="{{ workspace_path }}" class="{% if app_section == 'workspace_dashboard' %}active{% endif %}">工作台</a>
-        <a href="{{ workspace_projects_path }}" class="{% if app_section == 'workspace_projects' %}active{% endif %}">全部项目</a>
+        <a href="{{ workspace_path }}" class="{% if app_section in ('workspace_dashboard', 'workspace_projects') %}active{% endif %}">项目总览</a>
         <a href="/workspace/calendar" class="{% if app_section == 'workspace_calendar' %}active{% endif %}">日程</a>
         <a href="{{ workspace_archives_path }}" class="{% if app_section == 'workspace_archives' %}active{% endif %}">归档</a>
       </nav>
@@ -48,8 +47,7 @@
 
   {% if current_user %}
   <nav class="mobile-nav" aria-label="移动端导航">
-    <a href="{{ workspace_path }}" class="{% if app_section == 'workspace_dashboard' %}active{% endif %}"><i data-lucide="layout-dashboard"></i><span>工作台</span></a>
-    <a href="{{ workspace_projects_path }}" class="{% if app_section == 'workspace_projects' %}active{% endif %}"><i data-lucide="folder-kanban"></i><span>项目</span></a>
+    <a href="{{ workspace_path }}" class="{% if app_section in ('workspace_dashboard', 'workspace_projects') %}active{% endif %}"><i data-lucide="layout-dashboard"></i><span>总览</span></a>
     <a href="/workspace/calendar" class="{% if app_section == 'workspace_calendar' %}active{% endif %}"><i data-lucide="calendar-days"></i><span>日程</span></a>
     <a href="{{ workspace_archives_path }}" class="{% if app_section == 'workspace_archives' %}active{% endif %}"><i data-lucide="archive"></i><span>归档</span></a>
     {% if not open_access_mode %}<a href="{{ workspace_settings_path }}" class="{% if app_section == 'workspace_settings' %}active{% endif %}"><i data-lucide="settings"></i><span>管理</span></a>{% endif %}

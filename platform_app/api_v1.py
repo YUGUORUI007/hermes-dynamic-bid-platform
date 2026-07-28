@@ -19,6 +19,7 @@ from .dynamic_schema import (
     SCHEMA_VERSION,
     PROJECT_STATUSES,
     SchemaValidationError,
+    PROJECT_METADATA_FIELDS,
     merge_project_payload,
     payload_fingerprint,
     project_schema_document,
@@ -142,7 +143,7 @@ def validation_serializer() -> URLSafeTimedSerializer:
 
 
 def validation_core(payload: dict[str, Any]) -> dict[str, Any]:
-    return {key: payload[key] for key in ("title", "status", "owner", "summary", "schema_version", "content") if key in payload}
+    return {key: payload[key] for key in ("title", "status", "owner", "summary", "schema_version", "content", *PROJECT_METADATA_FIELDS) if key in payload}
 
 
 def sign_validation(payload: dict[str, Any], *, partial: bool) -> str:
@@ -188,6 +189,15 @@ def serialize_project(project: Project) -> dict[str, Any]:
         "status": project.status,
         "owner": project.owner_name or "",
         "summary": project.summary or "",
+        "tender_code": project.tender_code or "",
+        "buyer": project.buyer or "",
+        "agency": project.agency or "",
+        "contact_name": project.contact_name or "",
+        "contact_phone": project.contact_phone or "",
+        "signup_deadline": project.signup_deadline.isoformat() if project.signup_deadline else None,
+        "deposit_deadline": project.deposit_deadline.isoformat() if project.deposit_deadline else None,
+        "submission_datetime": project.submission_datetime.isoformat() if project.submission_datetime else None,
+        "bid_datetime": project.bid_datetime.isoformat() if project.bid_datetime else None,
         "schema_version": project.schema_version or SCHEMA_VERSION,
         "version": project.content_version or 1,
         "content": content,
@@ -195,6 +205,25 @@ def serialize_project(project: Project) -> dict[str, Any]:
         "updated_at": project.updated_at.isoformat() if project.updated_at else None,
         "url": f"{get_public_base_url()}/projects/{project.id}",
     }
+
+
+def parse_project_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError as exc:
+        raise ApiProblem(422, "invalid_datetime", "Project date fields must use ISO-8601 datetime values.") from exc
+
+
+def apply_project_metadata(project: Project, payload: dict[str, Any]) -> None:
+    text_fields = ("tender_code", "buyer", "agency", "contact_name", "contact_phone")
+    for field in text_fields:
+        if field in payload:
+            setattr(project, field, payload[field] or None)
+    for field in ("signup_deadline", "deposit_deadline", "submission_datetime", "bid_datetime"):
+        if field in payload:
+            setattr(project, field, parse_project_datetime(payload[field]))
 
 
 def audit_token_action(session, token: ApiToken, action: str, project: Project, detail: dict[str, Any], request_id: str) -> None:
@@ -356,6 +385,7 @@ async def create_project(
             schema_version=payload["schema_version"],
             content_version=1,
         )
+        apply_project_metadata(project, payload)
         session.add(project)
         session.flush()
         request_id = request.state.request_id
@@ -403,6 +433,7 @@ async def update_project(
         project.status = full["status"]
         project.owner_name = full.get("owner") or None
         project.summary = full.get("summary") or None
+        apply_project_metadata(project, full)
         project.dynamic_content = json.dumps(full["content"], ensure_ascii=False)
         project.schema_version = full["schema_version"]
         project.content_version = (project.content_version or 1) + 1

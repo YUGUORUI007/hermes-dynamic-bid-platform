@@ -71,6 +71,13 @@ payload = {
     "status": "tracking",
     "owner": "测试人员",
     "summary": "用于验证动态项目 API。",
+    "tender_code": "API-2026-001",
+    "buyer": "Test buyer",
+    "agency": "Test tender agency",
+    "contact_name": "Test contact",
+    "contact_phone": "13800000000",
+    "submission_datetime": "2026-07-30T17:00:00",
+    "bid_datetime": "2026-07-31T09:30:00",
     "schema_version": "1.0",
     "content": {
         "workflow": {"signup": "done", "deposit": "pending", "proposal": "in_progress", "deposit_refund": "pending"},
@@ -119,6 +126,8 @@ created_body = created.json()
 project_id = created_body["project"]["id"]
 assert created_body["project"]["version"] == 1
 assert created_body["project"]["url"] == f"https://bid.example.test/projects/{project_id}"
+assert created_body["project"]["agency"] == payload["agency"]
+assert created_body["project"]["bid_datetime"].startswith("2026-07-31T09:30:00")
 
 replayed = client.post("/api/v1/projects", headers=create_headers, json=confirmed_payload)
 assert replayed.status_code == 201, replayed.text
@@ -203,7 +212,7 @@ assert token_revoke.status_code in {302, 303}, token_revoke.text
 with session_scope() as session:
     assert session.get(ApiToken, web_token_id).revoked_at is not None
 page_checks = {
-    "/workspace": "投标工作台",
+    "/workspace": "当前待办与在投项目",
     "/workspace/projects": "全部项目",
     "/workspace/calendar": "关键节点日历",
     "/workspace/archives": "已投项目归档",

@@ -45,6 +45,9 @@ When invoked by a scheduled Hermes task, inspect active projects before asking t
 - Do not ask about a completed or not-applicable item unless later tender information creates a new requirement.
 - Include `content.workflow.prequalification` only when the tender explicitly requires qualification-pre-review materials. Omit it when no such requirement exists; use `not_applicable` only when clearing an item that was previously shown.
 - Ask for the internal project owner when it is missing. Never treat the purchaser, tender agent, or external contact as the owner.
+- After a submission deadline has passed without a completed delivery state, ask whether the bid was submitted or abandoned. After bid opening, ask first whether opening completed, then ask for the result. Never archive only because time passed.
+- Include the standard metadata whenever it is known: tender code, buyer, agency, contact name, contact phone, signup deadline, deposit deadline, submission datetime, and bid datetime. `agency` is the tender agency, never the internal owner.
+- Treat "关键节点" as a system-managed view. Do not create a dynamic section with that title; put project-specific dated items in any other relevant section and the platform will merge them into the single key-node timeline.
 - State the project name, deadline or reason, current recorded progress, and the exact information needed. Example: “XX 项目资格预审资料三天后截止，当前未确认是否提交。资料是否已提交？”
 - Treat every reply as information collection only. Summarize the proposed updates and request explicit confirmation before any API write.
 
@@ -134,6 +137,7 @@ python scripts/bid_platform.py archive <project-id> confirmed-archive.json --ide
 ## Content rules
 
 - Keep `title`, `status`, `owner`, and `summary` in the system envelope.
+- Keep tender metadata in the system envelope too: `tender_code`, `buyer`, `agency`, `contact_name`, `contact_phone`, `signup_deadline`, `deposit_deadline`, `submission_datetime`, and `bid_datetime`.
 - Create project-specific tabs under `content.sections`.
 - Use only documented block types; never send raw HTML, CSS, JavaScript, or data URLs.
 - Use `visibility: summary` only for information useful in project lists.

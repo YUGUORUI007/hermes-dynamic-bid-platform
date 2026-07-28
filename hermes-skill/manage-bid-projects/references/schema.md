@@ -14,6 +14,15 @@ python scripts/bid_platform.py schema
   "status": "tracking",
   "owner": "负责人",
   "summary": "用于列表和详情页顶部的简短摘要",
+  "tender_code": "TENDER-2026-001",
+  "buyer": "采购人",
+  "agency": "招标代理机构",
+  "contact_name": "联系人",
+  "contact_phone": "13800000000",
+  "signup_deadline": "2026-08-01T17:00:00",
+  "deposit_deadline": "2026-08-03T17:00:00",
+  "submission_datetime": "2026-08-05T09:30:00",
+  "bid_datetime": "2026-08-05T10:00:00",
   "schema_version": "1.0",
   "content": {"workflow": {"signup": "done", "deposit": "pending", "proposal": "in_progress"}, "sections": []},
   "change_summary": "本次变更摘要"
@@ -30,7 +39,7 @@ Do not overwrite one completed item when updating another. For example, a projec
 
 ## Section
 
-Each section renders as a project-detail tab.
+Each section renders as a project-detail tab. Do not create a section titled `关键节点` or `项目关键节点`: the platform owns one consolidated key-node timeline and merges the standard dates with valid dynamic timeline entries.
 
 ```json
 {
