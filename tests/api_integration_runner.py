@@ -212,14 +212,16 @@ assert token_revoke.status_code in {302, 303}, token_revoke.text
 with session_scope() as session:
     assert session.get(ApiToken, web_token_id).revoked_at is not None
 page_checks = {
-    "/workspace": "今天需要推进什么",
-    "/workspace/projects": "全部项目",
+    "/workspace": "在投项目",
     "/workspace/calendar": "关键节点日历",
     "/workspace/archives": "已投项目归档",
     "/workspace/settings": "Hermes Skill 接入",
     f"/projects/{project_id}": "项目概览",
     f"/projects/{project_id}/dynamic-editor": "动态内容编辑器",
 }
+projects_redirect = client.get("/workspace/projects", follow_redirects=False)
+assert projects_redirect.status_code == 302
+assert projects_redirect.headers["location"] == "/workspace"
 for path, expected_text in page_checks.items():
     page = client.get(path)
     assert page.status_code == 200, f"{path}: {page.status_code} {page.text[:500]}"

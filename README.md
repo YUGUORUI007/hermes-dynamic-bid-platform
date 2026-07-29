@@ -78,6 +78,12 @@ python hermes-skill\manage-bid-projects\scripts\bid_platform.py schema
 
 ## 验证
 
+完整测试需先安装开发依赖；它们不会进入生产运行环境：
+
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
+
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
 .venv\Scripts\python.exe scripts\migrate_dynamic_projects.py
