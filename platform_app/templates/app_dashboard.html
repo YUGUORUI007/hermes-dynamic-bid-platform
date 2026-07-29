@@ -1,29 +1,29 @@
 {% extends "base.html" %}
-{% block title %}项目总览 - 合家投标{% endblock %}
+{% block title %}项目 - 合家投标{% endblock %}
 {% block content %}
-<div class="overview-v3">
-  <header class="overview-v3-head">
-    <div><span class="eyebrow">项目总览</span><h1>今天需要推进什么</h1><p>把临期节点、待确认结果和保证金退还放在同一个工作队列里。</p></div>
-    <a class="secondary-btn" href="/workspace/calendar"><i data-lucide="calendar-days"></i>日程视图</a>
+<div class="project-home">
+  <header class="project-home-head">
+    <div><span class="eyebrow">项目</span><h1>在投项目</h1><p>从项目整体状态开始，再进入单个项目处理具体事项。</p></div>
+    <a class="secondary-btn" href="/workspace/calendar"><i data-lucide="calendar-days"></i>查看日程</a>
   </header>
 
-  <div class="overview-v3-board">
-    <section class="task-queue-v3" aria-labelledby="task-queue-title">
-      <header><div><span>工作队列</span><h2 id="task-queue-title">待处理事项</h2></div><small>按紧急程度与时间排序</small></header>
-      <div class="task-queue-v3-list">
-      {% for item in workspace.attention[:6] %}
-        <a class="task-row-v3 {{ item.tone }}" href="/projects/{{ item.project_id }}"><span class="task-row-v3-mark"><i data-lucide="{% if item.kind == 'refund' %}banknote-arrow-down{% elif item.kind == 'confirmation' %}circle-help{% else %}calendar-clock{% endif %}"></i></span><span><strong>{{ item.label }}</strong><small>{% if item.kind == 'confirmation' %}需要你的确认，Hermes 才能更新项目{% else %}打开项目查看节点与状态{% endif %}</small></span><i data-lucide="chevron-right"></i></a>
-      {% else %}
-        <div class="task-queue-v3-empty"><i data-lucide="circle-check"></i><strong>当前没有待处理事项</strong><span>近期节点和待确认结果会出现在这里。</span></div>
-      {% endfor %}
-      </div>
-    </section>
-    <aside class="week-plan-v3" aria-labelledby="week-plan-title"><header><span>本周节点</span><h2 id="week-plan-title">时间安排</h2></header><div class="week-plan-v3-list">{% for item in workspace.upcoming[:5] %}<a href="/projects/{{ item.project_id }}"><time>{{ item.deadline_at.strftime('%m-%d') }}<small>{{ item.deadline_at.strftime('%H:%M') }}</small></time><span><strong>{{ item.label }}</strong><small>{{ item.project_title }}</small></span></a>{% else %}<p>本周暂无已登记的关键节点。</p>{% endfor %}</div><a class="week-plan-v3-link" href="/workspace/calendar">打开完整日程 <i data-lucide="arrow-up-right"></i></a></aside>
-  </div>
-
-  <section class="active-projects-v3" aria-labelledby="active-projects-title">
-    <header><div><span>项目清单</span><h2 id="active-projects-title">进行中的项目</h2><p>{{ workspace.projects|length }} 个项目，按开标时间排序</p></div><a class="text-link" href="{{ workspace_projects_path }}">筛选与搜索 <i data-lucide="sliders-horizontal"></i></a></header>
-    <div class="project-table-v3"><div class="project-table-v3-head"><span>项目</span><span>当前状态</span><span>开标时间</span><span>当前待办</span></div>{% with projects=workspace.projects[:8] %}{% include "_project_rows.html" %}{% endwith %}</div>
+  <section class="project-metrics" aria-label="项目汇总">
+    <article><span>在投项目</span><strong>{{ workspace.metrics.active }}</strong><small>当前筛选范围</small></article>
+    <article><span>7 天内关键节点</span><strong>{{ workspace.metrics.due_seven_days }}</strong><small>具体时间请查看日程</small></article>
+    <article class="metric-alert"><span>需优先关注</span><strong>{{ workspace.metrics.urgent }}</strong><small>临近或已逾期节点</small></article>
+    <article><span>待结果项目</span><strong>{{ workspace.metrics.pending_result }}</strong><small>等待项目结果更新</small></article>
   </section>
+
+  <section class="project-ledger" aria-labelledby="active-projects-title">
+    <header><div><span class="eyebrow">项目列表</span><h2 id="active-projects-title">进行中的项目</h2><p>每个项目只出现一次，具体节点只在项目行内呈现。</p></div></header>
+    <form class="project-filter" method="get" action="{{ workspace_path }}">
+      <label><i data-lucide="search"></i><input name="keyword" value="{{ workspace.filters.keyword }}" placeholder="搜索项目或编号"></label>
+      <select name="status"><option value="">全部状态</option>{% for value,label in workspace.status_labels.items() %}{% if value in active_project_statuses %}<option value="{{ value }}" {% if workspace.filters.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select>
+      <select name="owner"><option value="">全部负责人</option>{% for owner in workspace.owners %}<option value="{{ owner }}" {% if workspace.filters.owner == owner %}selected{% endif %}>{{ owner }}</option>{% endfor %}</select>
+      <button class="secondary-btn" type="submit">筛选</button>
+    </form>
+    <div class="project-table-v3"><div class="project-table-v3-head"><span>项目</span><span>当前状态</span><span>负责人</span><span>下一关键节点</span></div>{% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}</div>
+  </section>
+  <p class="project-source"><i data-lucide="database"></i>项目正文栏目由 Hermes 动态写入；进入项目后按该项目的实际内容展示。</p>
 </div>
 {% endblock %}

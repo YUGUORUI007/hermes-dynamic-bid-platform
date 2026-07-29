@@ -2178,8 +2178,11 @@ def create_app() -> FastAPI:
         user = require_user(request)
         if isinstance(user, RedirectResponse):
             return RedirectResponse("/login", status_code=302)
+        keyword = request.query_params.get("keyword", "").strip()
+        status = request.query_params.get("status", "").strip()
+        owner = request.query_params.get("owner", "").strip()
         with session_scope() as session:
-            workspace_data = build_workspace_data(session)
+            workspace_data = build_workspace_data(session, keyword=keyword, status=status, owner=owner)
         return render_template("app_dashboard.html", request, workspace=workspace_data, error=None, notice=request.query_params.get("notice"), app_section="workspace_dashboard")
 
     @app.get(WORKSPACE_PROJECTS_PATH, response_class=HTMLResponse)
@@ -2187,7 +2190,9 @@ def create_app() -> FastAPI:
         user = require_user(request)
         if isinstance(user, RedirectResponse):
             return RedirectResponse("/login", status_code=302)
-        return render_workspace_projects_page(request, notice=request.query_params.get("notice"))
+        query = request.url.query
+        target = WORKSPACE_PATH if not query else f"{WORKSPACE_PATH}?{query}"
+        return RedirectResponse(target, status_code=302)
 
     @app.get(WORKSPACE_CALENDAR_PATH, response_class=HTMLResponse)
     def workspace_calendar(request: Request):
