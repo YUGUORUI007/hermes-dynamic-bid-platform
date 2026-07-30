@@ -48,7 +48,7 @@
   </main>
 
   {% if current_user %}
-  <nav class="mobile-nav" aria-label="移动端导航">
+  <nav class="mobile-nav {% if not open_access_mode %}has-admin{% endif %}" aria-label="移动端导航">
     <a href="{{ workspace_path }}" class="{% if app_section in ('workspace_dashboard', 'workspace_projects') %}active{% endif %}"><i data-lucide="briefcase-business"></i><span>项目</span></a>
     <a href="/workspace/calendar" class="{% if app_section == 'workspace_calendar' %}active{% endif %}"><i data-lucide="calendar-days"></i><span>日程</span></a>
     <a href="{{ workspace_archives_path }}" class="{% if app_section == 'workspace_archives' %}active{% endif %}"><i data-lucide="archive"></i><span>归档</span></a>
