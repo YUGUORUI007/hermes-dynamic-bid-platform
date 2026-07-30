@@ -69,7 +69,7 @@ python scripts/sync_skill.py --apply
 Skill 客户端示例：
 
 ```powershell
-$env:BID_PLATFORM_API_URL='http://127.0.0.1:8010/api/v1'
+$env:BID_PLATFORM_API_URL='https://tb.hejiawuye.cn/api/v1'
 $env:BID_PLATFORM_API_TOKEN='<token>'
 python hermes-skill\manage-bid-projects\scripts\bid_platform.py schema
 ```

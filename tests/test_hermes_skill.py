@@ -12,7 +12,7 @@ class HermesSkillEndToEndTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
         payload = json.loads(result.stdout.strip().splitlines()[-1])
         self.assertTrue(payload["ok"])
-        self.assertEqual(payload["checks"], 8)
+        self.assertEqual(payload["checks"], 10)
 
 
 if __name__ == "__main__":

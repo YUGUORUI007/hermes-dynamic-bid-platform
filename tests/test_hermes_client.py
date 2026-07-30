@@ -50,6 +50,26 @@ class HermesClientTests(unittest.TestCase):
                 bid_platform.apply_create({"title": "No confirmation"}, idempotency_key="test-key")
         mocked.assert_not_called()
 
+    def test_apply_confirmed_status_uses_safe_endpoint_and_idempotency_key(self):
+        calls = []
+
+        def fake_request(method, path, *, payload=None, headers=None):
+            calls.append((method, path, payload, headers))
+            return {"project": {"status": "preparing"}}
+
+        payload = confirmed_payload() | {"status": "preparing"}
+        with patch.object(bid_platform, "request", side_effect=fake_request):
+            response = bid_platform.apply_confirmed_action(12, "status", payload, idempotency_key="status-key")
+
+        self.assertEqual(response["project"]["status"], "preparing")
+        self.assertEqual(calls, [("POST", "/projects/12/status", payload, {"Idempotency-Key": "status-key"})])
+
+    def test_confirmed_action_rejects_unknown_action_without_network_call(self):
+        with patch.object(bid_platform, "request") as mocked:
+            with self.assertRaises(SystemExit):
+                bid_platform.apply_confirmed_action(12, "delete", confirmed_payload(), idempotency_key="test-key")
+        mocked.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
