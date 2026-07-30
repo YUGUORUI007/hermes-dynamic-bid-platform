@@ -17,7 +17,7 @@ Treat phrases such as “看看”, “整理一下”, “分析一下”, or m
 
 Require:
 
-- `BID_PLATFORM_API_URL`, for example `https://bid.hejiauwye.cloud/api/v1`
+- `BID_PLATFORM_API_URL`, set to `https://tb.hejiawuye.cn/api/v1`
 - `BID_PLATFORM_API_TOKEN`
 
 Use `scripts/bid_platform.py`. It uses only the Python standard library and never prints the token.
@@ -115,7 +115,7 @@ If the API returns `version_conflict`, re-read the project, rebuild the preview,
 Preview the exact note, confirm, then run:
 
 ```bash
-python scripts/bid_platform.py followup <project-id> confirmed-followup.json --idempotency-key hermes-<unique-id>
+python scripts/bid_platform.py apply followups <project-id> confirmed-followup.json --idempotency-key hermes-<unique-id>
 ```
 
 ### Change status
@@ -123,7 +123,7 @@ python scripts/bid_platform.py followup <project-id> confirmed-followup.json --i
 Use one current lifecycle stage for the homepage, chosen from: `pending_signup`, `registered`, `pending_prequalification`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, and `result_pending`. Preview the old and new status, confirm, then run:
 
 ```bash
-python scripts/bid_platform.py status <project-id> confirmed-status.json --idempotency-key hermes-<unique-id>
+python scripts/bid_platform.py apply status <project-id> confirmed-status.json --idempotency-key hermes-<unique-id>
 ```
 
 ### Archive
@@ -131,7 +131,7 @@ python scripts/bid_platform.py status <project-id> confirmed-status.json --idemp
 Explain that archive can trigger file cleanup. Require a fresh explicit confirmation even if the user confirmed an earlier update.
 
 ```bash
-python scripts/bid_platform.py archive <project-id> confirmed-archive.json --idempotency-key hermes-<unique-id>
+python scripts/bid_platform.py apply archive <project-id> confirmed-archive.json --idempotency-key hermes-<unique-id>
 ```
 
 ## Content rules

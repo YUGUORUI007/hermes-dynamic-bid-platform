@@ -80,11 +80,9 @@ try:
     }
     payload_path = work / "create.json"
     payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    validated = skill("validate", str(payload_path))
-    payload["validation_token"] = validated["validation_token"]
     payload["confirmation"] = {"confirmed_by": "测试用户", "confirmed_at": "2026-07-21T16:00:00+08:00", "summary": "确认创建样例项目"}
     payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    created = skill("create", str(payload_path), "--idempotency-key", "skill-e2e-create")
+    created = skill("apply", "create", str(payload_path), "--idempotency-key", "skill-e2e-create")
     project_id = created["project"]["id"]
     read = skill("get", str(project_id))
     if read["content"]["sections"][0]["title"] != "资格要求":
@@ -93,18 +91,22 @@ try:
     patch = {"summary": "增量补充：已完成营业执照核对。", "change_summary": "补充资格核对进度"}
     patch_path = work / "patch.json"
     patch_path.write_text(json.dumps(patch, ensure_ascii=False), encoding="utf-8")
-    patch_validation = skill("validate", "--partial", str(patch_path))
-    patch["validation_token"] = patch_validation["validation_token"]
     patch["confirmation"] = {"confirmed_by": "测试用户", "confirmed_at": "2026-07-21T16:05:00+08:00", "summary": "确认增量更新资格进度"}
     patch_path.write_text(json.dumps(patch, ensure_ascii=False), encoding="utf-8")
-    updated = skill("update", str(project_id), str(patch_path), "--version", "1", "--idempotency-key", "skill-e2e-update")
+    updated = skill("apply", "update", str(project_id), str(patch_path), "--idempotency-key", "skill-e2e-update")
     if updated["project"]["version"] != 2:
         raise RuntimeError("Skill 增量更新未生成版本 2。")
+    status_payload = {"status": "preparing", "confirmation": {"confirmed_by": "测试用户", "confirmed_at": "2026-07-21T16:10:00+08:00", "summary": "确认更新项目状态"}}
+    status_path = work / "status.json"
+    status_path.write_text(json.dumps(status_payload, ensure_ascii=False), encoding="utf-8")
+    status_updated = skill("apply", "status", str(project_id), str(status_path), "--idempotency-key", "skill-e2e-status")
+    if status_updated["project"]["status"] != "preparing":
+        raise RuntimeError("Skill 状态更新未写入 preparing。")
     with session_scope() as session:
         actions = {row.action for row in session.query(AuditLog).filter(AuditLog.entity_id == str(project_id)).all()}
-        if not {"api_create_project", "api_update_project"}.issubset(actions):
+        if not {"api_create_project", "api_update_project", "api_update_status"}.issubset(actions):
             raise RuntimeError("Skill 写入审计链不完整。")
-    print(json.dumps({"ok": True, "project_id": project_id, "checks": 8}))
+    print(json.dumps({"ok": True, "project_id": project_id, "checks": 10}))
 finally:
     server.terminate()
     try:

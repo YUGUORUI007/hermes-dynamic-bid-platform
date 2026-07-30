@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://bid.hejiauwye.cloud/schemas/project-1.0.json",
+  "$id": "https://tb.hejiawuye.cn/schemas/project-1.0.json",
   "title": "Hejia Dynamic Bid Project",
   "type": "object",
   "required": ["title", "status", "content"],

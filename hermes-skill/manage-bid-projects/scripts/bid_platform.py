@@ -85,6 +85,19 @@ def apply_update(project_id: int, payload: dict, *, idempotency_key: str) -> dic
     )
 
 
+def apply_confirmed_action(project_id: int, action: str, payload: dict, *, idempotency_key: str) -> dict:
+    """Write a confirmed follow-up, lifecycle update, or archive request."""
+    if action not in {"followups", "status", "archive"}:
+        raise SystemExit(f"Unsupported confirmed action: {action}")
+    require_confirmation(payload)
+    return request(
+        "POST",
+        f"/projects/{project_id}/{action}",
+        payload=payload,
+        headers={"Idempotency-Key": idempotency_key},
+    )
+
+
 def request(method: str, path: str, *, payload: dict | None = None, headers: dict[str, str] | None = None) -> dict:
     base_url, token = configuration()
     body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -144,6 +157,11 @@ def main() -> None:
     apply_update_command.add_argument("project_id", type=int)
     apply_update_command.add_argument("payload")
     apply_update_command.add_argument("--idempotency-key", required=True)
+    for name in ("followups", "status", "archive"):
+        command = apply_sub.add_parser(name)
+        command.add_argument("project_id", type=int)
+        command.add_argument("payload")
+        command.add_argument("--idempotency-key", required=True)
     for name in ("followup", "status", "archive"):
         command = sub.add_parser(name)
         command.add_argument("project_id", type=int)
@@ -178,17 +196,25 @@ def main() -> None:
         suffix = "?partial=true" if args.partial else ""
         emit(request("POST", f"/validate/project{suffix}", payload=read_json(args.payload)))
     elif args.command == "create":
-        emit(request("POST", "/projects", payload=read_json(args.payload), headers={"Idempotency-Key": args.idempotency_key}))
+        payload = read_json(args.payload)
+        require_confirmation(payload)
+        emit(request("POST", "/projects", payload=payload, headers={"Idempotency-Key": args.idempotency_key}))
     elif args.command == "update":
-        emit(request("PATCH", f"/projects/{args.project_id}", payload=read_json(args.payload), headers={"Idempotency-Key": args.idempotency_key, "If-Match": str(args.version)}))
+        payload = read_json(args.payload)
+        require_confirmation(payload)
+        emit(request("PATCH", f"/projects/{args.project_id}", payload=payload, headers={"Idempotency-Key": args.idempotency_key, "If-Match": str(args.version)}))
     elif args.command == "apply":
         payload = read_json(args.payload)
         if args.apply_command == "create":
             emit(apply_create(payload, idempotency_key=args.idempotency_key))
-        else:
+        elif args.apply_command == "update":
             emit(apply_update(args.project_id, payload, idempotency_key=args.idempotency_key))
+        else:
+            emit(apply_confirmed_action(args.project_id, args.apply_command, payload, idempotency_key=args.idempotency_key))
     else:
-        emit(request("POST", f"/projects/{args.project_id}/{args.command}", payload=read_json(args.payload), headers={"Idempotency-Key": args.idempotency_key}))
+        payload = read_json(args.payload)
+        require_confirmation(payload)
+        emit(request("POST", f"/projects/{args.project_id}/{args.command}", payload=payload, headers={"Idempotency-Key": args.idempotency_key}))
 
 
 if __name__ == "__main__":

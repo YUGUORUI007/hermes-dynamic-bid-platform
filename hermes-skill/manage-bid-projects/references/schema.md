@@ -43,8 +43,8 @@ Each section renders as a project-detail tab. Do not create a section titled `�
 
 ```json
 {
-  "id": "key-dates",
-  "title": "关键节点",
+  "id": "tender-requirements",
+  "title": "招标要求",
   "description": "报名、递交及开标安排",
   "icon": "calendar-range",
   "priority": "important",

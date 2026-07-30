@@ -105,7 +105,9 @@ def apply_release(target: Path, release: dict[str, str]) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Synchronize the Hermes bid-management Skill from GitHub releases")
     parser.add_argument("--target", type=Path, default=Path(__file__).resolve().parent.parent, help="Installed Skill directory")
-    parser.add_argument("--apply", action="store_true", help="Download and install the newest official release")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="Check the newest official release without changing the installed Skill")
+    mode.add_argument("--apply", action="store_true", help="Download and install the newest official release")
     args = parser.parse_args()
 
     release = latest_release()
