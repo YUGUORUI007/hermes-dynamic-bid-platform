@@ -1,7 +1,52 @@
 {% extends "base.html" %}
 {% block title %}日程 - 合家投标{% endblock %}
+{% block body_class %}page-calendar{% endblock %}
 {% block content %}
-<header class="page-title"><div><span class="eyebrow">执行日程</span><h1>关键节点日历</h1><p>自动同步项目登记的报名、文件购买、澄清、踏勘、保证金、递交和开标时间。</p></div></header>
-<div class="calendar-toolbar"><a class="secondary-btn" href="?year={{ calendar.prev_year }}&month={{ calendar.prev_month }}"><i data-lucide="chevron-left"></i></a><strong>{{ calendar.year }} 年 {{ calendar.month }} 月</strong><a class="secondary-btn" href="?year={{ calendar.next_year }}&month={{ calendar.next_month }}"><i data-lucide="chevron-right"></i></a></div>
-<div class="calendar-layout"><section class="calendar"><div class="calendar-week"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div><div class="calendar-grid">{% for day in calendar.days %}<div class="day {% if not day.current_month %}muted-day{% endif %} {% if day.today %}today{% endif %}"><b>{{ day.day }}</b>{% for event in day.events %}<a class="event {{ event.tone }}" href="/projects/{{ event.project_id }}" title="{{ event.project_name }} · {{ event.label }}">{{ event.label }} · {{ event.project_name }}</a>{% endfor %}</div>{% endfor %}</div></section><aside class="agenda"><h2>本月节点</h2>{% for event in calendar.events %}<a class="agenda-item" href="/projects/{{ event.project_id }}"><time>{{ event.at.strftime('%m-%d') }}</time><span><strong>{{ event.label }}</strong><small>{{ event.project_name }} · {{ event.at.strftime('%H:%M') }}</small></span></a>{% else %}<div class="empty-state compact"><span>本月暂无节点</span></div>{% endfor %}</aside></div>
+<div class="surface-page">
+  <header class="surface-page-head">
+    <div>
+      <span class="eyebrow">日程</span>
+      <h1>关键节点</h1>
+      <p>自动汇总报名、保证金、递交、开标等时间，不再单独维护第二份日历。</p>
+    </div>
+  </header>
+
+  <div class="calendar-toolbar">
+    <a class="secondary-btn" href="?year={{ calendar.prev_year }}&month={{ calendar.prev_month }}"><i data-lucide="chevron-left"></i></a>
+    <strong>{{ calendar.year }} 年 {{ calendar.month }} 月</strong>
+    <a class="secondary-btn" href="?year={{ calendar.next_year }}&month={{ calendar.next_month }}"><i data-lucide="chevron-right"></i></a>
+  </div>
+
+  <div class="calendar-layout">
+    <section class="calendar">
+      <div class="calendar-week">
+        <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
+      </div>
+      <div class="calendar-grid">
+        {% for day in calendar.days %}
+        <div class="day {% if not day.current_month %}muted-day{% endif %} {% if day.today %}today{% endif %}">
+          <b>{{ day.day }}</b>
+          {% for event in day.events %}
+          <a class="event {{ event.tone }}" href="/projects/{{ event.project_id }}" title="{{ event.project_name }} · {{ event.label }}">{{ event.label }} · {{ event.project_name }}</a>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    <aside class="agenda">
+      <h2>本月节点</h2>
+      {% for event in calendar.events %}
+      <a class="agenda-item" href="/projects/{{ event.project_id }}">
+        <time>{{ event.at.strftime('%m-%d') }}</time>
+        <span>
+          <strong>{{ event.label }}</strong>
+          <small>{{ event.project_name }} · {{ event.at.strftime('%H:%M') }}</small>
+        </span>
+      </a>
+      {% else %}
+      <div class="empty-state compact"><span>本月暂无节点</span></div>
+      {% endfor %}
+    </aside>
+  </div>
+</div>
 {% endblock %}

@@ -21,14 +21,27 @@ STATUS_LABELS = {
     "preparing": "待制作投标方案",
     "sealed": "标书已制作并封标",
     "ready_deliver": "待送标",
-    "submitted": "已递交",
-    "result_pending": "待结果",
+    "submitted": "已投",
+    "result_pending": "已投待结果",
     "won": "已中标",
     "lost": "未中标",
     "abandoned": "放弃投标",
     "partner_completed": "陪标完成",
     "archived": "已归档",
 }
+PRE_BID_STATUSES = {
+    "tracking",
+    "pending_signup",
+    "registered",
+    "pending_prequalification",
+    "deposit_pending",
+    "deposit_done",
+    "preparing",
+    "sealed",
+    "ready_deliver",
+}
+POST_BID_OPEN_STATUSES = {"submitted", "result_pending"}
+TERMINAL_STATUSES = {"won", "lost", "abandoned", "partner_completed", "archived"}
 STATUS_TONES = {
     "tracking": "warning",
     "pending_signup": "warning",
@@ -257,12 +270,12 @@ def completed_deadline_workflow_stages(project: Project) -> set[str]:
     }
 
 
-def project_deadline_entries(project: Project, now: datetime | None = None, *, within_days: int | None = None, include_past: bool = False) -> list[dict[str, Any]]:
+def project_deadline_entries(project: Project, now: datetime | None = None, *, within_days: int | None = None, include_past: bool = False, include_completed: bool = False) -> list[dict[str, Any]]:
     now = now or datetime.now()
     cutoff = now + timedelta(days=within_days) if within_days is not None else None
     entries = []
     seen: set[tuple[str, datetime]] = set()
-    completed_stages = completed_deadline_workflow_stages(project)
+    completed_stages = set() if include_completed else completed_deadline_workflow_stages(project)
     for field_name, label in DEADLINE_FIELDS:
         deadline_at = getattr(project, field_name, None)
         if deadline_at is None:
@@ -315,6 +328,114 @@ def project_next_deadline(project: Project, now: datetime | None = None) -> tupl
     return entries[0]["label"], entries[0]["deadline_at"]
 
 
+def _merge_workflow_state(content: dict[str, Any], updates: dict[str, str]) -> dict[str, Any]:
+    merged = dict(content) if isinstance(content, dict) else {"sections": []}
+    workflow = dict(merged.get("workflow") or {}) if isinstance(merged.get("workflow"), dict) else {}
+    workflow.update(updates)
+    merged["workflow"] = workflow
+    if "sections" not in merged or not isinstance(merged.get("sections"), list):
+        merged["sections"] = []
+    return merged
+
+
+def suggest_auto_lifecycle(project: Project, now: datetime | None = None) -> dict[str, Any] | None:
+    """Return the safe post-bid lifecycle change when a bid date has already passed.
+
+    Business rule:
+    - 递交截止后：未终态项目至少进入“已投”
+    - 开标时间后：未终态项目进入“已投待结果”
+    - 不自动写入中标/未中标/放弃，也不自动硬归档删除正文
+    """
+    now = now or datetime.now()
+    if project.status in TERMINAL_STATUSES:
+        return None
+
+    content = load_dynamic_content(project)
+    workflow_updates: dict[str, str] = {}
+    target_status = project.status
+    reasons: list[str] = []
+
+    submission_passed = bool(project.submission_datetime and project.submission_datetime <= now)
+    bid_passed = bool(project.bid_datetime and project.bid_datetime <= now)
+
+    if submission_passed or bid_passed:
+        for stage_id in ("signup", "prequalification", "deposit", "proposal", "sealing", "delivery"):
+            current = (content.get("workflow") or {}).get(stage_id) if isinstance(content.get("workflow"), dict) else None
+            if current not in {"done", "not_applicable"}:
+                # prequalification stays omitted unless already present
+                if stage_id == "prequalification" and stage_id not in (content.get("workflow") or {}):
+                    continue
+                workflow_updates[stage_id] = "done"
+        if project.status in PRE_BID_STATUSES | {"submitted"} and project.status != "result_pending":
+            if bid_passed:
+                target_status = "result_pending"
+                reasons.append(f"开标时间已到（{project.bid_datetime.strftime('%Y-%m-%d %H:%M')}）")
+            elif submission_passed:
+                target_status = "submitted"
+                reasons.append(f"投标递交截止已到（{project.submission_datetime.strftime('%Y-%m-%d %H:%M')}）")
+
+    if bid_passed:
+        current_open = (content.get("workflow") or {}).get("bid_open") if isinstance(content.get("workflow"), dict) else None
+        if current_open not in {"done", "not_applicable"}:
+            workflow_updates["bid_open"] = "done"
+        if target_status not in TERMINAL_STATUSES and target_status != "result_pending":
+            target_status = "result_pending"
+            if not reasons:
+                reasons.append(f"开标时间已到（{project.bid_datetime.strftime('%Y-%m-%d %H:%M')}）")
+
+    if target_status == project.status and not workflow_updates:
+        return None
+
+    return {
+        "from_status": project.status,
+        "to_status": target_status,
+        "workflow_updates": workflow_updates,
+        "reason": "；".join(reasons) or "关键投标节点已到期",
+        "content": _merge_workflow_state(content, workflow_updates) if workflow_updates else content,
+    }
+
+
+def apply_auto_lifecycle(project: Project, now: datetime | None = None) -> dict[str, Any] | None:
+    """Persist the post-bid lifecycle change onto the project row when needed."""
+    suggestion = suggest_auto_lifecycle(project, now)
+    if not suggestion:
+        return None
+    changed = False
+    if suggestion["to_status"] != project.status:
+        project.status = suggestion["to_status"]
+        changed = True
+    if suggestion["workflow_updates"]:
+        project.dynamic_content = json.dumps(suggestion["content"], ensure_ascii=False)
+        project.schema_version = project.schema_version or SCHEMA_VERSION
+        changed = True
+    if changed:
+        project.updated_at = datetime.utcnow()
+        return suggestion
+    return None
+
+
+def progress_due_projects(session, now: datetime | None = None) -> list[dict[str, Any]]:
+    """Advance all active projects whose bid/submission dates have passed."""
+    now = now or datetime.now()
+    changes: list[dict[str, Any]] = []
+    projects = (
+        session.query(Project)
+        .filter(Project.status.in_(sorted(ACTIVE_STATUSES)))
+        .all()
+    )
+    for project in projects:
+        suggestion = apply_auto_lifecycle(project, now)
+        if suggestion:
+            changes.append({
+                "project_id": project.id,
+                "project_name": project.name,
+                "from_status": suggestion["from_status"],
+                "to_status": suggestion["to_status"],
+                "reason": suggestion["reason"],
+            })
+    return changes
+
+
 def project_attention_items(project: Project, now: datetime | None = None) -> list[dict[str, Any]]:
     """Return actionable dashboard items, including post-bid confirmation work."""
     now = now or datetime.now()
@@ -332,11 +453,13 @@ def project_attention_items(project: Project, now: datetime | None = None) -> li
         })
     delivery = workflow.get("delivery", {})
     bid_open = workflow.get("bid_open", {})
-    if project.submission_datetime and project.submission_datetime < now and delivery.get("state") not in {"done", "not_applicable"}:
-        items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 投标文件递交时间已过，请确认是否已递交或放弃", "deadline_at": project.submission_datetime, "tone": "danger", "kind": "confirmation"})
-    elif project.bid_datetime and project.bid_datetime < now and project.status not in {"won", "lost", "abandoned", "partner_completed"}:
-        question = "请确认是否已开标" if bid_open.get("state") not in {"done", "not_applicable"} else "请确认中标结果"
-        items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 开标时间已过，{question}", "deadline_at": project.bid_datetime, "tone": "danger", "kind": "confirmation"})
+    if project.submission_datetime and project.submission_datetime < now and project.status in PRE_BID_STATUSES and delivery.get("state") not in {"done", "not_applicable"}:
+        items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 已到递交节点，系统将标记为已投；若实际未递交请改成放弃投标", "deadline_at": project.submission_datetime, "tone": "danger", "kind": "confirmation"})
+    if project.bid_datetime and project.bid_datetime < now and project.status not in TERMINAL_STATUSES:
+        if project.status in {"result_pending", "submitted"}:
+            items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 已投待结果，请确认中标结果", "deadline_at": project.bid_datetime, "tone": "danger", "kind": "confirmation"})
+        else:
+            items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 开标时间已过，系统将转入已投待结果", "deadline_at": project.bid_datetime, "tone": "danger", "kind": "confirmation"})
     refund = workflow.get("deposit_refund", {})
     if refund.get("refund_overdue_days", 0):
         items.append({"project_id": project.id, "project_title": project.name, "label": f"{project.name} · 投标保证金待退还已超 {refund['refund_overdue_days']} 天", "deadline_at": project.bid_datetime or now, "tone": "danger", "kind": "refund"})
@@ -344,7 +467,7 @@ def project_attention_items(project: Project, now: datetime | None = None) -> li
 
 
 def canonical_key_node_section(project: Project) -> dict[str, Any] | None:
-    entries = project_deadline_entries(project, include_past=True)
+    entries = project_deadline_entries(project, include_past=True, include_completed=True)
     if not entries:
         return None
     return {
@@ -416,6 +539,11 @@ def build_workspace_data(session, *, keyword: str = "", status: str = "", owner:
     if owner:
         query = query.filter(Project.owner_name == owner)
     projects = query.all()
+    for project in projects:
+        apply_auto_lifecycle(project, now)
+    projects = [project for project in projects if project.status in ACTIVE_STATUSES]
+    if status:
+        projects = [project for project in projects if project.status == status]
     projects.sort(key=lambda project: (project.bid_datetime is None, project.bid_datetime or datetime.max, project.updated_at), reverse=False)
     cards = [serialize_project_card(project, now) for project in projects]
     upcoming = [entry for project in projects for entry in project_deadline_entries(project, now, within_days=7)]
@@ -444,6 +572,7 @@ def build_calendar_data(session, year: int, month: int) -> dict[str, Any]:
     projects = session.query(Project).filter(Project.status.in_(sorted(ACTIVE_STATUSES))).all()
     events: list[dict[str, Any]] = []
     for project in projects:
+        apply_auto_lifecycle(project, datetime.now())
         for entry in project_deadline_entries(project, include_past=True):
             if entry["deadline_at"].year == year and entry["deadline_at"].month == month:
                 events.append({"project_id": project.id, "project_name": project.name, "label": entry["label"], "at": entry["deadline_at"], "tone": entry["tone"]})
@@ -498,6 +627,7 @@ def build_archive_data(session, keyword: str = "", status: str = "") -> dict[str
 
 
 def serialize_project_detail(project: Project) -> dict[str, Any]:
+    apply_auto_lifecycle(project)
     card = serialize_project_card(project)
     content = dict(card["content"])
     sections = [section for section in content.get("sections", []) if str(section.get("title", "")).strip() not in {"关键节点", "项目关键节点"}]

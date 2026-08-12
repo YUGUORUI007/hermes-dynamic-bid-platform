@@ -27,6 +27,7 @@ from .dynamic_schema import (
 )
 from .models import ApiToken, AuditLog, IdempotencyRecord, Project, ProjectContentVersion, ProjectFollowup
 from .services.project_archive import archive_project_data
+from .services.dynamic_ui import apply_auto_lifecycle
 
 
 router = APIRouter(prefix="/api/v1", tags=["Hermes API"])
@@ -179,6 +180,7 @@ async def read_json_object(request: Request) -> dict[str, Any]:
 
 
 def serialize_project(project: Project) -> dict[str, Any]:
+    apply_auto_lifecycle(project)
     try:
         content = json.loads(project.dynamic_content or "{\"sections\":[]}")
     except json.JSONDecodeError:

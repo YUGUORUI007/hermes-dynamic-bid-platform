@@ -5,142 +5,171 @@ description: Parse tender documents or user-provided bidding information, organi
 
 # Manage Bid Projects
 
-Turn tender material into project-specific structured content and synchronize it to the Hejia bidding platform. Let the material determine the tabs and fields; do not force every project into one fixed template.
+把招标资料变成“这个项目自己的”结构，再同步到合家投标平台。资料决定标签页和字段，不要把所有项目硬塞进同一套模板。
 
-## Non-negotiable safety rule
+## 不可突破的安全规则
 
-Never call a write operation before the user explicitly confirms the exact proposed change in the current conversation.
+在用户对**当前这次变更预览**给出明确确认前，绝不调用任何写入接口。
 
-Treat phrases such as “看看”, “整理一下”, “分析一下”, or merely uploading a file as analysis requests, not confirmation. Accept an unambiguous instruction such as “确认写入”, “按这个更新”, or “确认归档”. Never invent or infer confirmation.
+“看看”“整理一下”“分析一下”、只是上传文件，都只算分析，不算确认。只有“确认写入”“按这个更新”“确认归档”这类明确指令才可写入。禁止臆造或推断确认。
 
-## Environment
+## 环境
 
-Require:
+需要：
 
-- `BID_PLATFORM_API_URL`, set to `https://tb.hejiawuye.cn/api/v1`
+- `BID_PLATFORM_API_URL`，生产环境用 `https://tb.hejiawuye.cn/api/v1`
 - `BID_PLATFORM_API_TOKEN`
 
-Use `scripts/bid_platform.py`. It uses only the Python standard library and never prints the token.
+统一使用 `scripts/bid_platform.py`。它只依赖 Python 标准库，且永不打印 Token。
 
-## Skill Updates And Connection Checks
+## 先判断任务类型，再行动
 
-Install this Skill as a GitHub-managed copy, not an untracked manual copy. Its installed version is in `VERSION`.
+不要每次都走完整长流程。先判断用户这次要什么：
 
-- On every workday at 08:45, run `python scripts/sync_skill.py --check` from the installed Skill directory.
-- If a newer stable GitHub release is available, run `python scripts/sync_skill.py --apply` to update only the local Skill. The updater creates a timestamped backup and never reads or changes `BID_PLATFORM_API_TOKEN`.
-- Report the installed Skill version after an update. Do not automatically deploy website/server releases; tell the user that a server upgrade is available and wait for approval.
-- Before reporting an API token failure, run `python scripts/bid_platform.py health`. A network or TLS failure is not an invalid-token result.
-- If health succeeds but API calls return `401 invalid_token`, report the status and ask the user to check the service token configuration. Never print the token.
-- Prefer `python scripts/bid_platform.py doctor` before any update session. It reports whether the failure is network/TLS or authenticated API access, without writing project data.
-- If the public hostname is intercepted by a local proxy or TUN, use an SSH local forward to the platform's internal port and set `BID_PLATFORM_API_URL` to the resulting `http://127.0.0.1:<local-port>/api/v1`. Do not disable TLS validation and do not use `--insecure`.
+1. **新建项目**：用户给了招标文件/项目信息，目标是上线一个新项目。
+2. **增量更新**：用户说“补充保证金已汇”“改负责人”“加一条跟进”“开标结果是未中标”。
+3. **巡检催办**：定时任务或用户问“最近哪些项目要跟”。
+4. **结果/归档**：用户确认中标、未中标、放弃，或要求归档。
 
-## Scheduled Progress Check
+原则：
 
-When invoked by a scheduled Hermes task, inspect active projects before asking the user. The website does not initiate this task itself.
+- 只改用户这次提到的内容，不动其他已有正确信息。
+- 预览要短：目标项目、将改哪些字段/标签、关键日期/风险、不确定项。
+- 不要每次复读整份 schema、整份安全说明、整套命令百科。
+- 用户确认后，优先一条命令完成：`apply create` / `apply update` / `apply status` / `apply followups` / `apply archive`。
+- 回报也要短：项目名、负责人、状态、变更点、项目链接。失败时给错误码和可执行修复建议，不要假装成功。
 
-- Run on every workday at 09:00. Run an additional check at 15:00 for deadlines due within three calendar days or already overdue.
-- List active projects, read each relevant project, and use the tender-derived dates and current project data to identify: signup, qualification-pre-review, document purchase, clarification, site visit, deposit, submission, bid opening, result, and deposit refund follow-up.
-- Ask about a deadline within seven days; treat three days or fewer, overdue deadlines, and an unreturned deposit more than 14 days after bid opening as urgent.
-- Ask only the most actionable question per project in one check. Do not repeat the same unanswered question more than once per workday; group routine questions into one concise message.
-- Do not ask about a completed or not-applicable item unless later tender information creates a new requirement.
-- Include `content.workflow.prequalification` only when the tender explicitly requires qualification-pre-review materials. Omit it when no such requirement exists; use `not_applicable` only when clearing an item that was previously shown.
-- Ask for the internal project owner when it is missing. Never treat the purchaser, tender agent, or external contact as the owner.
-- After a submission deadline has passed without a completed delivery state, ask whether the bid was submitted or abandoned. After bid opening, ask first whether opening completed, then ask for the result. Never archive only because time passed.
-- Include the standard metadata whenever it is known: tender code, buyer, agency, contact name, contact phone, signup deadline, deposit deadline, submission datetime, and bid datetime. `agency` is the tender agency, never the internal owner.
-- Treat "关键节点" as a system-managed view. Do not create a dynamic section with that title; put project-specific dated items in any other relevant section and the platform will merge them into the single key-node timeline.
-- State the project name, deadline or reason, current recorded progress, and the exact information needed. Example: “XX 项目资格预审资料三天后截止，当前未确认是否提交。资料是否已提交？”
-- Treat every reply as information collection only. Summarize the proposed updates and request explicit confirmation before any API write.
+## 业务状态怎么理解
 
-## Workflow
+平台生命周期状态：
 
-1. Read the supplied files and messages.
-2. Search for a likely existing project before proposing a create operation:
+`pending_signup` 待报名 → `registered` 已报名 → `pending_prequalification` 待资格预审（仅需要时） → `deposit_pending` 待缴保证金 → `deposit_done` 保证金已汇出 → `preparing` 待制作方案 → `sealed` 已封标 → `ready_deliver` 待送标 → `submitted` 已投 → `result_pending` 已投待结果 → `won` / `lost` / `abandoned` / `partner_completed`
 
-   ```bash
-   python scripts/bid_platform.py projects --query "项目名称或招标编号"
-   ```
+网站会自动做这件事：
 
-3. Build a payload following [references/schema.md](references/schema.md). Choose tabs from the actual material. Omit unsupported or unknown facts instead of guessing.
-4. For a new project, or when the existing project has no owner, ask who inside the company is responsible for advancing this bid. Do not use a tender-agency contact, purchaser contact, or an external project manager as `owner`.
-5. Present a concise preview containing:
-   - target project or “new project”;
-   - system fields being set;
-   - tabs being added, replaced, or removed;
-   - important dates and risks;
-   - any uncertain information.
-6. Ask the user to confirm that exact preview. Stop before any write command.
-7. After explicit confirmation, save the intended payload to a temporary JSON file. The payload must include the exact `confirmation` object:
+- 递交截止时间到了：未终态项目自动标成 **已投**（`submitted`）
+- 开标时间到了：未终态项目自动进入 **已投待结果**（`result_pending`）
 
-   ```bash
-   python scripts/bid_platform.py apply create payload.json --idempotency-key hermes-<unique-id>
-   ```
+因此 Hermes 不要再机械地问“开标到了要不要改成已投”。应改为：
 
-   For an existing project, use the one-command update flow below. It reads the current version, obtains a fresh validation token, and writes only after both server checks pass.
-8. For a new project, search for duplicates before the apply step and obtain a separate decision to create or update. Do not decide silently.
-9. The `apply` command obtains the short-lived validation token itself; Hermes must never invent one. Keep the confirmation object in the payload:
+- 开标后优先确认 **结果**（中标 / 未中标 / 陪标完成 / 放弃）
+- 只有用户明确说“其实没投”时，才改成 `abandoned`
+- **硬归档**会清理详细正文与文件，必须单独确认；开标到期 ≠ 自动归档
 
-   ```json
-   {
-     "confirmation": {
-       "confirmed_by": "the user's displayed name",
-       "confirmed_at": "ISO-8601 timestamp",
-       "summary": "the exact change the user confirmed"
-     }
-   }
-   ```
+并行执行状态放在 `content.workflow`，可同时推进，不要因为改一个事项覆盖另一个已完成事项。
 
-10. Reuse an idempotency key only when retrying the exact same confirmed request.
-11. Report the project name, internal owner, current status, changed tabs, and returned project URL. On failure, report the API error code and follow its repair guidance; do not claim success.
+## Skill 更新与连通检查
 
-## Operations
+安装版以 GitHub 管理的 Skill 为准，版本见 `VERSION`。
 
-### Create
+- 每个工作日 08:45：`python scripts/sync_skill.py --check`
+- 有新稳定版时：`python scripts/sync_skill.py --apply`（只更新本地 Skill，先备份，不碰 Token，不升级服务器）
+- 更新后报告安装版本；服务器升级必须等用户批准
+- 怀疑 Token 失效前，先 `python scripts/bid_platform.py health`
+- 更新会话开始时优先 `python scripts/bid_platform.py doctor`
+- 若公网域名被本地代理/TUN 干扰，用 SSH 本地转发到服务器内网端口，并把 `BID_PLATFORM_API_URL` 指到 `http://127.0.0.1:<port>/api/v1`。禁止 `--insecure`，禁止关闭 TLS 校验
+
+## 定时巡检
+
+由 Hermes 定时任务触发，网站本身不发起。
+
+- 每个工作日 09:00 巡检在投项目
+- 对 3 天内到期或已逾期的节点，15:00 再加检一次
+- 关注：报名、资格预审、购标、澄清、踏勘、保证金、递交、开标、结果、开标后 14 天仍未退保证金
+- 每个项目一次只问最关键的一个问题；同一工作日不重复追问同一未答问题
+- 缺内部负责人时要问；采购人/代理/外部联系人不能当 `owner`
+- 开标后优先问结果，不要再问“要不要改成已投”
+- 所有回复先当信息收集；汇总预览并得到明确确认后才写入
+
+## 标准工作流
+
+1. 读用户给的文件和消息。
+2. 先搜索是否已有项目：
+
+```bash
+python scripts/bid_platform.py projects --query "项目名称或招标编号"
+```
+
+3. 按 [references/schema.md](references/schema.md) 组织 payload。标签页来自真实资料；不知道的字段就省略，不要猜。
+4. 新项目或现有项目没有负责人时，问公司内部负责人。
+5. 给用户看简短预览：
+   - 目标：新建 / 更新哪个项目
+   - 系统字段变化
+   - 标签页新增、替换或删除
+   - 关键日期与风险
+   - 不确定项
+6. 等待用户明确确认。确认前停止。
+7. 确认后把 payload 写成临时 JSON，并带上完整 `confirmation`，再执行一条 apply 命令。
+8. 新建前若有重名候选，必须让用户决定“新建还是更新”，不能自行决定。
+9. `apply` 会自行获取短期 validation token；Hermes 不要编造 token。
+
+```json
+{
+  "confirmation": {
+    "confirmed_by": "用户显示名",
+    "confirmed_at": "ISO-8601 时间",
+    "summary": "用户确认的那句变更摘要"
+  }
+}
+```
+
+10. 同一确认请求重试时才复用幂等键。
+11. 成功后回报项目名、负责人、状态、变更点、URL。
+
+## 命令
+
+### 新建
 
 ```bash
 python scripts/bid_platform.py apply create confirmed-payload.json --idempotency-key hermes-<unique-id>
 ```
 
-### Update
-
-Use the safe one-command update flow. It reads the project immediately before writing and uses its returned version:
+### 更新
 
 ```bash
 python scripts/bid_platform.py apply update <project-id> confirmed-patch.json --idempotency-key hermes-<unique-id>
 ```
 
-If the API returns `version_conflict`, re-read the project, rebuild the preview, and ask the user to confirm again.
+若返回 `version_conflict`：重新读取项目，重建预览，再次确认。
 
-### Add follow-up
-
-Preview the exact note, confirm, then run:
+### 跟进
 
 ```bash
 python scripts/bid_platform.py apply followups <project-id> confirmed-followup.json --idempotency-key hermes-<unique-id>
 ```
 
-### Change status
+### 改状态
 
-Use one current lifecycle stage for the homepage, chosen from: `pending_signup`, `registered`, `pending_prequalification`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, and `result_pending`. Preview the old and new status, confirm, then run:
+首页生命周期状态用一个当前阶段。预览旧状态和新状态，确认后：
 
 ```bash
 python scripts/bid_platform.py apply status <project-id> confirmed-status.json --idempotency-key hermes-<unique-id>
 ```
 
-### Archive
+### 归档
 
-Explain that archive can trigger file cleanup. Require a fresh explicit confirmation even if the user confirmed an earlier update.
+说明归档可能清理文件。即使前面刚确认过更新，归档也要重新明确确认：
 
 ```bash
 python scripts/bid_platform.py apply archive <project-id> confirmed-archive.json --idempotency-key hermes-<unique-id>
 ```
 
-## Content rules
+## 内容规则
 
-- Keep `title`, `status`, `owner`, and `summary` in the system envelope.
-- Keep tender metadata in the system envelope too: `tender_code`, `buyer`, `agency`, `contact_name`, `contact_phone`, `signup_deadline`, `deposit_deadline`, `submission_datetime`, and `bid_datetime`.
-- Create project-specific tabs under `content.sections`.
-- Use only documented block types; never send raw HTML, CSS, JavaScript, or data URLs.
-- Use `visibility: summary` only for information useful in project lists.
-- Use `priority: urgent` sparingly for real deadlines or disqualification risks.
-- Preserve useful existing tabs during partial updates unless the user explicitly approves replacement or removal.
-- Do not upload tender files through this skill. The website no longer performs AI/OCR analysis.
+- 系统外壳：`title`、`status`、`owner`、`summary`
+- 系统元数据：`tender_code`、`buyer`、`agency`、`contact_name`、`contact_phone`、`signup_deadline`、`deposit_deadline`、`submission_datetime`、`bid_datetime`
+- 项目专属标签页放 `content.sections`
+- 只用文档化的 block 类型；禁止原始 HTML/CSS/JS/data URL
+- `visibility: summary` 只给列表真正有用的信息
+- `priority: urgent` 只用于真实截止或废标风险
+- 增量更新时保留仍有用的旧标签页，除非用户明确要求替换/删除
+- 不要通过这个 Skill 上传招标原件；网站不再做 AI/OCR 主流程
+- 不要创建标题为“关键节点”的动态标签页；日期交给平台统一汇总
+
+## 对话风格
+
+- 像项目助理，不像接口说明书
+- 先给结论，再给必要细节
+- 一次只推进一个明确决策
+- 用户已经很熟时，跳过重复解释
+- 预览用短列表，不贴大段 JSON，除非用户要求看原始 payload

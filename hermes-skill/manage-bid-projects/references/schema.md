@@ -31,6 +31,17 @@ python scripts/bid_platform.py schema
 
 System lifecycle statuses currently used by the platform: `tracking`, `pending_signup`, `registered`, `pending_prequalification`, `deposit_pending`, `deposit_done`, `preparing`, `sealed`, `ready_deliver`, `submitted`, `result_pending`, `won`, `lost`, `abandoned`, `partner_completed`, `archived`.
 
+Display labels that matter for operators:
+
+- `submitted` = 已投
+- `result_pending` = 已投待结果
+
+Automatic website progression:
+
+- After `submission_datetime`, active projects move to `submitted` if still pre-bid.
+- After `bid_datetime`, active projects move to `result_pending`.
+- The website does **not** auto-hard-archive. Final result (`won` / `lost` / `abandoned` / `partner_completed`) and archive still require explicit confirmation through Hermes or an authorized operator.
+
 ## Parallel workflow
 
 Use `content.workflow` for the editable, concurrent bid-work items shown on the project detail page and summarized on the homepage. Valid keys are `signup`, `prequalification`, `deposit`, `proposal`, `sealing`, `delivery`, `bid_open`, and `deposit_refund`; each value is one of `pending`, `in_progress`, `done`, or `not_applicable`. `prequalification` is optional: include it only when the tender requires qualification-pre-review materials. Omit it for projects without that requirement; the website will not show a qualification-pre-review status item. When `bid_datetime` is more than 14 days ago and `deposit_refund` is not `done` or `not_applicable`, the platform highlights the pending refund as overdue.

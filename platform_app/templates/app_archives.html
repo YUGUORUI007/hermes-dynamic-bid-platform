@@ -1,8 +1,66 @@
 {% extends "base.html" %}
-{% block title %}项目归档 - 合家投标{% endblock %}
+{% block title %}归档 - 合家投标{% endblock %}
+{% block body_class %}page-archives{% endblock %}
 {% block content %}
-<header class="page-title"><div><span class="eyebrow">历史沉淀</span><h1>已投项目归档</h1><p>归档后仅保留必要业务记录，源文件与动态详细内容按策略清理。</p></div></header>
-<section class="stats-row"><article><span>累计归档</span><strong>{{ archive.total }}</strong></article><article><span>已中标</span><strong>{{ archive.won }}</strong></article><article><span>未中标</span><strong>{{ archive.lost }}</strong></article><article><span>已清理源文件</span><strong>{{ archive.deleted_files }}</strong></article></section>
-<form class="toolbar" method="get"><label class="wide-search"><i data-lucide="search"></i><input name="keyword" value="{{ archive.keyword }}" placeholder="搜索历史项目"></label><select name="status"><option value="">全部结果</option>{% for value,label in archive.status_labels.items() %}{% if value in terminal_project_statuses %}<option value="{{ value }}" {% if archive.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select><button class="secondary-btn" type="submit">筛选</button></form>
-<section class="surface table-scroll"><table class="data-table"><thead><tr><th>项目名称</th><th>投标日期</th><th>结果</th><th>归档时间</th><th>清理记录</th>{% if can_manage_users(current_user) %}<th>操作</th>{% endif %}</tr></thead><tbody>{% for item in archive.rows %}<tr><td><strong>{{ item.project_name }}</strong><small>原项目 ID {{ item.original_project_id }}</small></td><td>{{ format_datetime(item.bid_at) or '-' }}</td><td><em class="status {% if item.final_status == 'won' %}success{% elif item.final_status == 'lost' %}danger{% else %}neutral{% endif %}">{{ archive.status_labels.get(item.final_status,item.final_status) }}</em></td><td>{{ format_datetime(item.archived_at) }}</td><td>源文件 {{ item.deleted_source_files_count }} · 文本 {{ item.deleted_text_cache_count }}</td>{% if can_manage_users(current_user) %}<td><form method="post" action="/archives/{{ item.id }}/delete" onsubmit="return confirm('永久删除归档记录“{{ item.project_name }}”？此操作不可撤销。');"><button class="text-button danger" type="submit">永久删除</button></form></td>{% endif %}</tr>{% else %}<tr><td colspan="6">暂无归档记录。</td></tr>{% endfor %}</tbody></table></section>
+<div class="surface-page">
+  <header class="surface-page-head">
+    <div>
+      <span class="eyebrow">归档</span>
+      <h1>已投项目归档</h1>
+      <p>只有确认结果后的项目进入这里。开标后会先留在“已投待结果”，不会自动清空正文。</p>
+    </div>
+  </header>
+
+  <section class="project-metrics archive-metrics" aria-label="归档汇总">
+    <article><span>累计归档</span><strong>{{ archive.total }}</strong><small>历史项目</small></article>
+    <article><span>已中标</span><strong>{{ archive.won }}</strong><small>结果确认</small></article>
+    <article><span>未中标</span><strong>{{ archive.lost }}</strong><small>结果确认</small></article>
+    <article><span>已清理源文件</span><strong>{{ archive.deleted_files }}</strong><small>归档清理</small></article>
+  </section>
+
+  <section class="project-ledger archive-ledger">
+    <header>
+      <div>
+        <span class="eyebrow">归档列表</span>
+        <h2>历史项目</h2>
+        <p>归档记录只保留结果与必要摘要，不再重复展示在投列表。</p>
+      </div>
+    </header>
+    <form class="project-filter" method="get">
+      <label><i data-lucide="search"></i><input name="keyword" value="{{ archive.keyword }}" placeholder="搜索历史项目"></label>
+      <select name="status">
+        <option value="">全部结果</option>
+        {% for value,label in archive.status_labels.items() %}
+          {% if value in terminal_project_statuses %}
+          <option value="{{ value }}" {% if archive.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+      <button class="secondary-btn" type="submit">筛选</button>
+    </form>
+    <div class="archive-list">
+      {% for item in archive.rows %}
+      <article class="archive-row">
+        <div class="archive-row-main">
+          <strong>{{ item.project_name }}</strong>
+          <small>原项目 ID {{ item.original_project_id }}</small>
+        </div>
+        <div class="archive-row-meta">
+          <span>投标日期<br><b>{{ format_datetime(item.bid_at) or '-' }}</b></span>
+          <span>结果<br><em class="status {% if item.final_status == 'won' %}success{% elif item.final_status == 'lost' %}danger{% else %}neutral{% endif %}">{{ archive.status_labels.get(item.final_status, item.final_status) }}</em></span>
+          <span>归档时间<br><b>{{ format_datetime(item.archived_at) }}</b></span>
+          <span>清理记录<br><b>源文件 {{ item.deleted_source_files_count }} · 文本 {{ item.deleted_text_cache_count }}</b></span>
+        </div>
+        {% if can_manage_users(current_user) %}
+        <form method="post" action="/archives/{{ item.id }}/delete" onsubmit="return confirm('永久删除归档记录“{{ item.project_name }}”？此操作不可撤销。');">
+          <button class="text-button danger" type="submit">永久删除</button>
+        </form>
+        {% endif %}
+      </article>
+      {% else %}
+      <div class="empty-state"><i data-lucide="archive"></i><strong>暂无归档记录</strong><span>确认结果并归档后会出现在这里。</span></div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
 {% endblock %}

@@ -1,29 +1,60 @@
 {% extends "base.html" %}
 {% block title %}项目 - 合家投标{% endblock %}
+{% block body_class %}page-projects{% endblock %}
 {% block content %}
 <div class="project-home">
   <header class="project-home-head">
-    <div><span class="eyebrow">项目</span><h1>在投项目</h1><p>从项目整体状态开始，再进入单个项目处理具体事项。</p></div>
+    <div>
+      <span class="eyebrow">项目</span>
+      <h1>在投项目</h1>
+      <p>先看整体进度，再点进单个项目处理细节。开标后会自动进入“已投待结果”。</p>
+    </div>
     <a class="secondary-btn" href="/workspace/calendar"><i data-lucide="calendar-days"></i>查看日程</a>
   </header>
 
   <section class="project-metrics" aria-label="项目汇总">
     <article><span>在投项目</span><strong>{{ workspace.metrics.active }}</strong><small>当前筛选范围</small></article>
-    <article><span>7 天内关键节点</span><strong>{{ workspace.metrics.due_seven_days }}</strong><small>具体时间请查看日程</small></article>
-    <article class="metric-alert"><span>需优先关注</span><strong>{{ workspace.metrics.urgent }}</strong><small>临近或已逾期节点</small></article>
-    <article><span>待结果项目</span><strong>{{ workspace.metrics.pending_result }}</strong><small>等待项目结果更新</small></article>
+    <article><span>7 天内关键节点</span><strong>{{ workspace.metrics.due_seven_days }}</strong><small>具体时间看日程</small></article>
+    <article class="metric-alert"><span>需优先关注</span><strong>{{ workspace.metrics.urgent }}</strong><small>临近或已逾期</small></article>
+    <article><span>已投待结果</span><strong>{{ workspace.metrics.pending_result }}</strong><small>等待结果确认</small></article>
   </section>
 
   <section class="project-ledger" aria-labelledby="active-projects-title">
-    <header><div><span class="eyebrow">项目列表</span><h2 id="active-projects-title">进行中的项目</h2><p>每个项目只出现一次，具体节点只在项目行内呈现。</p></div></header>
+    <header>
+      <div>
+        <span class="eyebrow">项目列表</span>
+        <h2 id="active-projects-title">进行中的项目</h2>
+        <p>每个项目只出现一次；下一关键节点直接显示在项目行内。</p>
+      </div>
+    </header>
     <form class="project-filter" method="get" action="{{ workspace_path }}">
       <label><i data-lucide="search"></i><input name="keyword" value="{{ workspace.filters.keyword }}" placeholder="搜索项目或编号"></label>
-      <select name="status"><option value="">全部状态</option>{% for value,label in workspace.status_labels.items() %}{% if value in active_project_statuses %}<option value="{{ value }}" {% if workspace.filters.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select>
-      <select name="owner"><option value="">全部负责人</option>{% for owner in workspace.owners %}<option value="{{ owner }}" {% if workspace.filters.owner == owner %}selected{% endif %}>{{ owner }}</option>{% endfor %}</select>
+      <select name="status">
+        <option value="">全部状态</option>
+        {% for value,label in workspace.status_labels.items() %}
+          {% if value in active_project_statuses %}
+          <option value="{{ value }}" {% if workspace.filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+      <select name="owner">
+        <option value="">全部负责人</option>
+        {% for owner in workspace.owners %}
+        <option value="{{ owner }}" {% if workspace.filters.owner == owner %}selected{% endif %}>{{ owner }}</option>
+        {% endfor %}
+      </select>
       <button class="secondary-btn" type="submit">筛选</button>
     </form>
-    <div class="project-table-v3"><div class="project-table-v3-head"><span>项目</span><span>当前状态</span><span>负责人</span><span>下一关键节点</span></div>{% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}</div>
+    <div class="project-table-v3">
+      <div class="project-table-v3-head">
+        <span>项目</span>
+        <span>当前状态</span>
+        <span>负责人</span>
+        <span>下一关键节点</span>
+      </div>
+      {% with projects=workspace.projects %}{% include "_project_rows.html" %}{% endwith %}
+    </div>
   </section>
-  <p class="project-source"><i data-lucide="database"></i>项目正文栏目由 Hermes 动态写入；进入项目后按该项目的实际内容展示。</p>
+  <p class="project-source"><i data-lucide="database"></i>项目正文栏目由 Hermes 动态写入；进入项目后只展示该项目自己的内容。</p>
 </div>
 {% endblock %}

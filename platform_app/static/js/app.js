@@ -123,11 +123,14 @@
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
-      const container = button.closest(".project-hero")?.nextElementSibling;
-      document.querySelectorAll("[data-tab]").forEach((item) => item.classList.remove("active"));
-      container?.querySelectorAll(".tab-pane").forEach((item) => item.classList.remove("active"));
+      const root = button.closest("[data-tab-root]") || button.closest(".detail-v3-content") || button.closest(".project-hero")?.nextElementSibling || document;
+      const tabButtons = root.querySelectorAll("[data-tab]");
+      const panes = root.querySelectorAll(".tab-pane");
+      tabButtons.forEach((item) => item.classList.remove("active"));
+      panes.forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
-      document.getElementById(button.dataset.tab)?.classList.add("active");
+      const pane = root.querySelector(`#${CSS.escape(button.dataset.tab)}`) || document.getElementById(button.dataset.tab);
+      pane?.classList.add("active");
     });
   });
 

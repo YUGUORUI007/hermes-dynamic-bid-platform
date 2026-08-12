@@ -135,6 +135,7 @@ def main() -> None:
     projects = sub.add_parser("projects")
     projects.add_argument("--query", default="")
     projects.add_argument("--status", default="")
+    sub.add_parser("summary", help="Compact active-project briefing for Hermes conversations")
     get = sub.add_parser("get")
     get.add_argument("project_id", type=int)
     validate = sub.add_parser("validate")
@@ -190,6 +191,33 @@ def main() -> None:
     elif args.command == "projects":
         query = urllib.parse.urlencode({"q": args.query, "status": args.status})
         emit(request("GET", f"/projects?{query}"))
+    elif args.command == "summary":
+        payload = request("GET", "/projects?limit=100")
+        items = payload.get("items") or []
+        active = []
+        pending_result = []
+        for item in items:
+            status = str(item.get("status") or "")
+            row = {
+                "id": item.get("id"),
+                "title": item.get("title") or item.get("name"),
+                "status": status,
+                "owner": item.get("owner") or item.get("owner_name"),
+                "bid_datetime": item.get("bid_datetime"),
+                "submission_datetime": item.get("submission_datetime"),
+                "url": item.get("url"),
+            }
+            if status == "result_pending":
+                pending_result.append(row)
+            if status not in {"won", "lost", "abandoned", "partner_completed", "archived"}:
+                active.append(row)
+        emit({
+            "active_count": len(active),
+            "pending_result_count": len(pending_result),
+            "pending_result": pending_result[:20],
+            "active": active[:30],
+            "hint": "开标后项目会自动进入 result_pending（已投待结果）；请优先确认结果，不要重复询问是否改为已投。",
+        })
     elif args.command == "get":
         emit(request("GET", f"/projects/{args.project_id}"))
     elif args.command == "validate":

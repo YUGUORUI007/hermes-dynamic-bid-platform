@@ -59,7 +59,7 @@ from .models import (
 )
 from .services.ledger_import import read_ledger_rows
 from .services.project_archive import archive_project_data
-from .services.dynamic_ui import WORKFLOW_STAGES, WORKFLOW_STAGE_IDS, build_archive_data, build_calendar_data, build_workspace_data, load_dynamic_content, serialize_project_detail
+from .services.dynamic_ui import WORKFLOW_STAGES, WORKFLOW_STAGE_IDS, build_archive_data, build_calendar_data, build_workspace_data, load_dynamic_content, progress_due_projects, serialize_project_detail
 from .services.ai_pipeline import (
     ANSWER_MODE_LABELS,
     FIELD_LABELS,
@@ -97,8 +97,8 @@ STATUS_LABELS = {
     "preparing": "待制作投标方案",
     "sealed": "标书已制作并封标",
     "ready_deliver": "待送标",
-    "submitted": "已递交",
-    "result_pending": "待结果",
+    "submitted": "已投",
+    "result_pending": "已投待结果",
     "won": "已中标",
     "lost": "未中标",
     "abandoned": "放弃投标",
@@ -223,8 +223,8 @@ WORKBOARD_STAGE_LABELS = {
     "preparing_bid": "标书制作中",
     "pending_deposit": "待缴保证金",
     "pending_submission": "待递交",
-    "submitted": "已递交",
-    "pending_result": "待结果",
+    "submitted": "已投",
+    "pending_result": "已投待结果",
 }
 
 REQUIREMENT_IMPORTANCE_LABELS = {
@@ -2033,6 +2033,7 @@ def create_app() -> FastAPI:
     with session_scope() as session:
         repair_project_text_content(session)
         repair_terminal_projects(session)
+        progress_due_projects(session)
         repair_active_project_milestones(session)
 
     app = FastAPI(title="投标项目智能管理平台")
